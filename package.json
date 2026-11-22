@@ -1,0 +1,11 @@
+{
+  "name": "sigma-ug",
+  "private": true,
+  "scripts": {
+    "install:all": "npm install --prefix client && npm install --prefix server",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "test": "npm test --prefix server",
+    "db:siapkan": "npm run db:siapkan --prefix server"
+  }
+}

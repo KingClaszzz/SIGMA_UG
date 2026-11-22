@@ -1,0 +1,11 @@
+.notif-tengah-latar { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: rgba(23, 16, 41, 0.18); animation: notif-latar 0.2s ease-out; }
+.notif-tengah { display: flex; align-items: center; gap: 16px; width: min(440px, 100%); padding: 20px 24px; border-radius: 16px; background: #fff; box-shadow: 0 24px 60px rgba(23, 16, 41, 0.28); animation: notif-masuk 0.35s cubic-bezier(0.2, 1.2, 0.4, 1); }
+.notif-tengah strong { display: block; font-size: 16px; color: var(--violet-24); }
+.notif-tengah p { margin: 4px 0 0; font-family: var(--font-inter); font-size: 13px; line-height: 1.5; color: var(--blue-42); }
+.notif-tengah-ikon { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%; font-size: 20px; font-weight: 700; color: #fff; }
+.notif-tengah.ok .notif-tengah-ikon { background: #1f7a45; }
+.notif-tengah.galat .notif-tengah-ikon { background: #c62828; }
+.notif-tengah.info .notif-tengah-ikon { background: var(--violet-45); }
+@keyframes notif-latar { from { opacity: 0; } }
+@keyframes notif-masuk { from { opacity: 0; transform: translateY(14px) scale(0.92); } }
+@media (prefers-reduced-motion: reduce) { .notif-tengah, .notif-tengah-latar { animation: none; } }

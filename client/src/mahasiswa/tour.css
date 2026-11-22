@@ -1,0 +1,14 @@
+.tur { position: fixed; left: 300px; bottom: 32px; z-index: 90; width: min(380px, calc(100vw - 24px)); padding: 22px; border: 1px solid var(--violet-89); border-radius: 16px; background: #fff; box-shadow: 0 24px 60px rgba(23, 16, 41, 0.28); animation: tur-masuk 0.4s var(--ease); }
+.tur h2 { margin: 2px 0 8px; font-size: 18px; font-weight: 700; color: var(--violet-24); }
+.tur p { font-family: var(--font-inter); font-size: 13px; line-height: 1.6; color: var(--blue-42); }
+.tur .tur-hitung { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--violet-39); }
+.tur-titik { display: flex; gap: 6px; margin: 14px 0; }
+.tur-titik span { width: 7px; height: 7px; border-radius: 99px; background: var(--grey-92); transition: width 0.25s var(--ease), background-color 0.25s; }
+.tur-titik span.aktif { width: 20px; background: var(--violet-33); }
+.tur-aksi { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tur-aksi > span { display: flex; gap: 8px; }
+.aside a.tur-sorot, .aside .nav-link.tur-sorot { position: relative; z-index: 91; background: #fff; color: var(--violet-24); box-shadow: 0 0 0 3px #f0b849, 0 0 18px rgba(240, 184, 73, 0.6); animation: tur-denyut 1.4s ease-in-out infinite; }
+@keyframes tur-masuk { from { opacity: 0; transform: translateY(16px); } }
+@keyframes tur-denyut { 50% { box-shadow: 0 0 0 5px rgba(240, 184, 73, 0.7), 0 0 22px rgba(240, 184, 73, 0.4); } }
+@media (max-width: 900px) { .tur { left: 12px; right: 12px; bottom: 72px; width: auto; } }
+@media (prefers-reduced-motion: reduce) { .tur, .aside a.tur-sorot { animation: none; } }

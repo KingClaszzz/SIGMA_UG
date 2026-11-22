@@ -1,0 +1,88 @@
+.shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+.kolom { min-width: 0; }
+
+.aside {
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 24px 16px; background: var(--violet-24);
+}
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 8px 24px; color: #fff; font-weight: 700; font-size: 16px;
+}
+.nav-link {
+  display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px;
+  padding: 0 14px; border: 0; border-radius: 12px; background: none; cursor: pointer;
+  font-size: 14px; font-weight: 500; color: var(--violet-88); text-align: left;
+  transition: background-color 0.18s, color 0.18s;
+}
+.nav-link img { opacity: 0.75; transition: opacity 0.18s, transform 0.18s var(--ease); }
+.nav-link:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.nav-link:hover img { opacity: 1; transform: translateX(2px); }
+.nav-link.aktif { background: var(--violet-45); color: #fff; }
+.nav-link.aktif img { opacity: 1; }
+.spacer { flex: 1; }
+
+.header {
+  position: relative; z-index: 2; display: flex; align-items: center; justify-content: space-between;
+  min-height: 71px; padding: 0 25px; border-bottom: 1px solid var(--grey-92); background: #fff;
+}
+.chip {
+  padding: 4px 10px 5px; border-radius: 99px; background: var(--grey-94);
+  font-size: 12px; font-weight: 600; color: var(--violet-33);
+}
+.user { position: relative; }
+.user-btn {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+  padding: 6px 10px; border: 0; border-radius: 10px; background: none; cursor: pointer; text-align: right;
+  transition: background-color 0.18s;
+}
+.user-btn:hover, .user-btn[aria-expanded='true'] { background: var(--grey-94); }
+.header-kanan { display: flex; align-items: center; gap: 8px; }
+.user-btn { flex-direction: row; align-items: center; gap: 10px; }
+.user-teks { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.user-btn .avatar { display: grid; place-items: center; flex: none; width: 38px; height: 38px; border-radius: 50%; background: var(--violet-45); font-family: var(--font-poppins); font-size: 13px; font-weight: 700; color: #fff; order: 2; }
+.lonceng { position: relative; }
+.lonceng-btn { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--grey-92); border-radius: 50%; background: #fff; cursor: pointer; color: var(--blue-17); transition: background-color 0.15s, border-color 0.15s; }
+.lonceng-btn:hover { background: var(--grey-95); border-color: var(--violet-45); }
+.lonceng-angka { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; display: grid; place-items: center; border-radius: 99px; background: #c62828; font-size: 11px; font-weight: 700; color: #fff; }
+.lonceng-menu { width: 300px; }
+.lonceng-judul { padding: 6px 10px 8px; font-size: 12px; font-weight: 600; color: var(--violet-39); }
+.lonceng-kosong { padding: 8px 10px 10px; font-size: 13px; color: var(--violet-39); }
+.lonceng-menu a strong { display: inline-block; min-width: 22px; color: var(--violet-24); }
+.user-btn strong { font-size: 14px; font-weight: 600; color: var(--blue-17); }
+.user-btn span { font-family: var(--font-inter); font-size: 13px; font-weight: 500; color: var(--blue-42); }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 6px); width: 230px; padding: 8px;
+  display: flex; flex-direction: column;
+  background: #fff; border: 1px solid #e1d8f0; border-radius: 14px; box-shadow: 0 12px 15px rgba(57, 35, 79, 0.18);
+  animation: naik 0.2s var(--ease);
+}
+.menu a, .menu button {
+  padding: 10px; border: 0; border-radius: 8px; background: none; cursor: pointer;
+  font-size: 13px; color: #2a1f3d; text-align: left; transition: background-color 0.15s;
+}
+.menu a:hover, .menu button:hover { background: var(--grey-94); }
+
+.aside-maskot { flex: 1 1 0; min-height: 0; container-type: size; display: flex; align-items: flex-end; justify-content: center; padding: 8px 0 4px; }
+/* Maskot mengisi ruang kosong sidebar setinggi yang tersedia (maks. 200px); disembunyikan bila ruangnya terlalu sempit. */
+.maskot-samping { height: min(100cqh, 200px); display: flex; justify-content: center; }
+.maskot-samping .owl-miring { height: 100%; }
+.maskot-samping .owl-badan { display: inline-block; height: 100%; width: auto; }
+.maskot-samping .owl-badan img { height: 100%; width: auto; }
+@container (max-height: 100px) { .maskot-samping { display: none; } }
+.main { padding: 28px clamp(16px, 4vw, 56px) 56px; }
+
+/* Layar kecil: sidebar menjadi bilah navigasi bawah */
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+  .aside {
+    position: fixed; inset: auto 0 0 0; z-index: 15; height: 64px; flex-direction: row; justify-content: space-around; gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 20px rgba(27, 23, 64, 0.2);
+  }
+  .brand, .spacer, .aside-maskot { display: none; }
+  .nav-link { flex: 1; min-width: 0; min-height: 0; flex-direction: column; justify-content: center; gap: 3px; padding: 4px 2px; font-size: 10.5px; text-align: center; }
+  .nav-link img { width: 20px; height: 20px; }
+  .header { padding: 0 16px; min-height: 60px; }
+  .main { padding: 20px 16px 96px; }
+}

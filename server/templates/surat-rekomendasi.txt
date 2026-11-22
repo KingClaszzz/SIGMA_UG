@@ -1,0 +1,51 @@
+@kop
+UNIVERSITAS GUNADARMA
+SK. No. 92/DIKTI/Kep/1996
+Fakultas Ilmu Komputer, Teknologi Industri, Ekonomi, Teknik Sipil & Perencanaan, Psikologi, Sastra dan Budaya, Ilmu Komunikasi **Program Diploma (D3) **Manajemen Informatika, Teknik Komputer, Akuntansi Komputer, Manajemen Keuangan dan Pemasaran. **Program Sarjana (S1) **Sistem Informasi, Sistem Komputer, Teknik Informatika, Teknik Elektro, Teknik Mesin, Teknik Industri, Akuntansi, Manajemen, Teknik Arsitektur, Teknik Sipil, Psikologi, Sastra Inggris, Ilmu Komunikasi. **Program Magister (S2) **Sistem Informasi, Manajemen, Teknik Elektro, Sastra Inggris, Psikologi, Teknik Sipil, Teknik Mesin **Program Doktor (S3) **Ilmu Ekonomi, Teknologi Informasi, Psikologi
+
+@judul
+SURAT REKOMENDASI
+
+@baris
+Kepada Yth.
+{{kepada}}
+{{perusahaan}}
+{{alamat_perusahaan}}
+
+Melalui surat ini, saya yang bertanda tangan di bawah ini,
+
+@baris
+Nama           : {{ttd_nama}}
+Jabatan        : {{ttd_jabatan}}
+NIP/NIDN       : {{ttd_nip}}
+Email          : {{ttd_email}}
+No. Telepon/WA : {{ttd_telepon}}
+
+Memberikan rekomendasi kepada siswa/mahasiswa dengan data diri berikut ini:
+
+@baris
+Nama             : {{nama}}
+Alamat           : {{alamat}}
+NPM              : {{npm}}
+Fakultas         : Ilmu Komputer dan Teknologi Informasi
+Jurusan/Program  : Sistem Informasi
+Semester         : {{semester}}
+Tahun Akademik   : {{tahun_akademik}}
+No. Handphone    : {{no_hp}}
+
+Mahasiswa di atas kami rekomendasikan untuk menjadi peserta Magang di {{perusahaan}} selama {{lama}} mulai {{bulan_mulai}} – {{bulan_selesai}} dengan pertimbangan bahwa mahasiswa tersebut sanggup mengikuti secara penuh dan bertanggung jawab hingga akhir program selesai. Sebagai bentuk dukungan, kami selaku pihak perwakilan kampus menyatakan kesediaan untuk hal berikut:
+
+@daftar
+1. Memberikan dukungan dan bertanggung jawab atas mahasiswa selama periode pelaksanaan Magang.
+2. Memberikan pengakuan keikutsertaan mahasiswa di Program Magang, Surat Keterangan Pendamping Ijazah, atau hal lainnya yang dapat diakui dan menunjang kegiatan akademik di kampus.
+3. Mampu menjadi jembatan untuk berkoordinasi antara Tim Magang dan Mahasiswa apabila terjadi masalah/kendala di kemudian.
+
+Demikian surat rekomendasi ini kami buat untuk digunakan dalam Program Magang.
+
+@baris
+Jakarta, {{tanggal_surat}}
+~
+~
+~
+~
+({{ttd_nama}})

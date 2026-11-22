@@ -1,0 +1,58 @@
+/* Gaya yang hanya dipakai halaman peran mahasiswa. */
+
+
+
+.modal-latar { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(27, 23, 64, 0.45); animation: pudar 0.2s; }
+.modal { display: grid; justify-items: center; gap: 14px; width: min(460px, 100%); padding: 32px; border-radius: 18px; background: #fff; text-align: center; box-shadow: 0 24px 60px rgba(27, 23, 64, 0.3); animation: naik 0.3s var(--ease); }
+.modal h2 { font-family: var(--font-playfair); font-size: 22px; color: var(--violet-24); }
+.modal-ikon { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: var(--green-bg); font-size: 28px; color: var(--green-fg); }
+.modal-aksi { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 6px; }
+@keyframes pudar { from { opacity: 0; } }
+
+/* Konversi SKS */
+.hitung-mundur { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 28px 32px; border-radius: 16px; background: var(--violet-25); color: #fff; }
+.hitung-mundur small { font-size: 13px; color: var(--grey-94); }
+.hitung-mundur .angka { margin: 4px 0; font-size: 40px; font-weight: 700; color: var(--orange-62); }
+.hitung-mundur .gelombang { padding: 12px 18px; border-radius: 10px; background: var(--orange-62); color: var(--violet-24); font-size: 12px; }
+.hitung-mundur .gelombang strong { display: block; font-size: 15px; }
+.baris-dok { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--grey-92); border-radius: 10px; background: #f8f6fd; font-size: 13px; font-weight: 600; }
+.baris-dok + .baris-dok { margin-top: 10px; }
+.tabel-hasil .total td { font-weight: 700; }
+.kartu-pilih { display: grid; gap: 10px; margin-top: 12px; }
+.kartu-pilih a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--grey-92); border-radius: 12px; transition: border-color 0.18s, transform 0.18s var(--ease), box-shadow 0.18s; }
+.kartu-pilih a:hover { border-color: var(--violet-45); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(58, 35, 85, 0.08); }
+.kartu-pilih strong { display: block; font-size: 14px; }
+.kartu-pilih small { color: var(--violet-39); font-family: var(--font-inter); }
+
+/* Dokumen Magang */
+.ringkas-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.kartu-dok { display: grid; gap: 10px; align-content: start; }
+.kartu-dok h3 { font-size: 14px; font-weight: 600; }
+.kartu-dok a.tautan { font-size: 12px; font-weight: 600; color: var(--blue-36); }
+.kartu-dok a.tautan:hover { text-decoration: underline; }
+.progres { height: 8px; margin-top: 10px; border-radius: 8px; background: var(--grey-94); overflow: hidden; }
+.progres > span { display: block; height: 100%; border-radius: 8px; background: var(--violet-45); transition: width 0.6s var(--ease); }
+.deadline { padding: 18px 20px; border: 1px solid #f4d58a; border-radius: 14px; background: var(--yellow-bg); font-size: 13px; color: var(--yellow-fg); }
+.deadline strong { display: block; margin-top: 4px; font-size: 14px; color: var(--violet-24); }
+.deadline.lewat { background: var(--red-bg); border-color: #f5b5b5; color: var(--red-fg); }
+.selesai-kartu { display: grid; justify-items: center; gap: 8px; padding: 32px 20px; border-left: 4px solid #1f7a45; text-align: center; }
+.selesai-kartu .modal-ikon { border-radius: 14px; width: 72px; height: 56px; }
+.selesai-kartu h2 { color: var(--green-fg); font-size: 20px; }
+
+@media (max-width: 1000px) {
+  .ringkas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .ringkas-grid { grid-template-columns: 1fr; }
+}
+
+.kv-kartu { padding: 16px 18px; border-radius: 14px; }
+.kv-kartu dt { font-size: 12px; color: var(--violet-39); }
+.kv-kartu dd { margin: 4px 0 0; font-size: 14px; font-weight: 600; }
+
+.entri-logbook { display: grid; gap: 10px; margin: 12px 0 0; padding: 0; max-height: 380px; overflow-y: auto; list-style: none; }
+.entri-logbook li { position: relative; padding: 12px 14px; border: 1px solid var(--grey-92); border-radius: 10px; background: #f8f6fd; }
+.entri-logbook strong { display: block; font-size: 13px; color: var(--violet-24); }
+.entri-logbook p { margin: 4px 0; font-family: var(--font-inter); font-size: 13px; }
+.entri-logbook small { display: block; font-size: 12px; color: var(--violet-39); }
+.entri-aksi { display: flex; gap: 4px; margin-top: 6px; }

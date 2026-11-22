@@ -1,0 +1,76 @@
+@import './components/ui.css';
+
+:root {
+  /* Token dari Figma (PPSI) */
+  --violet-24: #3a2355;
+  --violet-25: #3b2260;
+  --violet-33: #4a2f7a;
+  --violet-45: #6a4c9c;
+  --violet-88: #ddd3ee;
+  --violet-89: #e2daee;
+  --violet-39: #5e5473;
+  --blue-17: #1b1740;
+  --blue-36: #3b2a8c;
+  --blue-42: #5b5680;
+  --orange-62: #f2b84b;
+  --grey-92: #e3dff5;
+  --grey-94: #eee9f4;
+  --grey-95: #eeeafb;
+  --green-bg: #dcfce7;
+  --green-fg: #166534;
+  --yellow-bg: #fef3c7;
+  --yellow-fg: #92400e;
+  --red-bg: #fee2e2;
+  --red-fg: #991b1b;
+
+  --font-poppins: 'Poppins', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-playfair: 'Playfair Display', serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; font-family: var(--font-poppins); color: var(--blue-17); background: #fff; }
+h1, h2, h3, p { margin: 0; }
+a { color: inherit; text-decoration: none; }
+button, input { font: inherit; }
+img { display: block; }
+:focus-visible { outline: 2px solid var(--blue-36); outline-offset: 2px; }
+
+@keyframes naik {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.masuk { animation: naik 0.5s var(--ease) both; animation-delay: calc(var(--urut, 0) * 70ms); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+.judul { font-family: var(--font-playfair); font-size: 28px; font-weight: 700; color: var(--violet-24); }
+.sub { margin-top: 6px; font-size: 14px; color: var(--blue-42); }
+
+.badge {
+  display: inline-block; padding: 4px 10px; border-radius: 99px;
+  font-family: var(--font-inter); font-size: 12px; font-weight: 600;
+}
+.badge.hijau { background: var(--green-bg); color: var(--green-fg); }
+.badge.kuning { background: var(--yellow-bg); color: var(--yellow-fg); }
+.badge.merah { background: var(--red-bg); color: var(--red-fg); }
+.badge.ungu { background: #ece5f8; color: var(--violet-33); }
+.badge.abu { background: var(--grey-94); color: var(--blue-42); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px;
+  border: 1px solid transparent; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 600; transition: transform 0.18s var(--ease), background-color 0.18s, box-shadow 0.18s;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: none; }
+.btn.isi { background: var(--blue-36); color: #fff; }
+.btn.isi:hover { background: var(--violet-33); box-shadow: 0 6px 14px rgba(59, 42, 140, 0.25); }
+.btn.garis { background: #fff; border-color: var(--blue-36); color: var(--blue-36); }
+.btn.garis:hover { background: var(--grey-95); }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }

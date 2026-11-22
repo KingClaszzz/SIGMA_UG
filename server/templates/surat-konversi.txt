@@ -1,0 +1,72 @@
+@kop
+UNIVERSITAS GUNADARMA
+SK. No.92/DIKTI/Kep/1996
+**Program Diploma (D3) **Manajemen Informatika, Teknik Komputer, Akuntansi Komputer, Manajemen Keuangan, Manajemen Pemasaran
+**Program Sarjana (S1) **Sistem Informasi, Sistem Komputer, Teknik Informatika, Teknik Elektro, Teknik Mesin, Teknik Industri, Agroteknologi, Akuntansi, Manajemen, Ekonomi Syariah, Teknik Arsitektur, Teknik Sipil, Design Interior, Psikologi, Sastra Inggris, Pariwisata, Sastra Tiongkok, Ilmu Komunikasi, Farmasi, Kedokteran, Kebidanan
+**Program Magister (S2) **Sistem Informasi, Manajemen, Teknik Elektro, Sastra Inggris, Psikologi, Psikologi Profesi, Teknik Sipil, Teknik Mesin, Ilmu Komunikasi, Arsitektur
+**Program Doktor (S3) **Ilmu Ekonomi, Teknologi Informasi, Ilmu Psikologi
+
+@judul
+PENETAPAN RENCANA PENGAKUAN SATUAN KREDIT SEMESTER PEMBELAJARAN
+MAGANG MANDIRI {{tahun_akademik}}
+PROGRAM STUDI SISTEM INFORMASI
+
+Ketua Program Studi Sistem Informasi Universitas Gunadarma, berdasarkan Peraturan Menteri Pendidikan Tinggi, Sains, dan Teknologi Nomor 39 Tahun 2025 tentang Penjaminan Mutu Pendidikan Tinggi dan Peraturan Akademik Universitas Gunadarma, setelah meninjau kegiatan Magang Mandiri sebagai bentuk pembelajaran di luar program studi yang diikuti oleh mahasiswa berikut:
+
+@baris
+Nama      : {{nama}}
+NPM       : {{npm}}
+Angkatan  : {{angkatan}}
+Kegiatan  : {{kegiatan}}
+
+dengan ini menetapkan rencana pengakuan satuan kredit semester pembelajaran Magang Mandiri {{tahun_akademik}} sebanyak {{total_sks}} SKS, untuk mata kuliah sebagaimana tercantum dalam lampiran.
+(terlampir daftar mata kuliah yang ditetapkan untuk pengakuan satuan kredit semester)
+
+Mata kuliah tersebut ditetapkan oleh Program Studi berdasarkan kesesuaian capaian pembelajaran mata kuliah dengan kegiatan yang diikuti mahasiswa. Penetapan ini dapat ditinjau kembali oleh Program Studi apabila posisi, durasi, atau mitra magang berubah.
+
+Pengakuan satuan kredit semester diberikan dengan ketentuan mahasiswa:
+
+@daftar
+1. Memenuhi dan menyelesaikan kewajiban SKS pada semester berjalan di Universitas Gunadarma, yang tidak termasuk dalam mata kuliah yang diakui melalui Magang Mandiri ini, sebagai salah satu prasyarat pemenuhan gelar sarjana di Universitas Gunadarma;
+2. Melaksanakan Magang Mandiri sesuai dengan rencana yang telah ditetapkan serta menyerahkan laporan penyelesaian Magang Mandiri kepada Program Studi, meliputi:
+  a. Logbook kegiatan yang ditandatangani pembimbing lapangan dari mitra (sesuai format yang ditetapkan Program Studi);
+  b. Bukti penyelesaian dan penilaian dari mitra magang (dapat berupa surat keterangan/sertifikat/karya hasil kegiatan);
+3. Mengikuti Ujian Capaian Pembelajaran untuk setiap mata kuliah yang ditetapkan dalam lampiran.
+
+Pernyataan mahasiswa: Saya telah membaca rencana pengakuan SKS yang ditetapkan oleh Program Studi di atas beserta lampirannya, dan menyatakan bersedia memenuhi seluruh ketentuannya.
+
+@dua-kolom
+Menetapkan, | Depok, {{tanggal_surat}}
+Ketua Program Studi Sistem Informasi | Menyatakan bersedia,
+~ | Mahasiswa peserta Magang Mandiri
+~
+~
+~
+(Dr. Naeli Umniati, S.T., M.M.S.I.) | ({{nama}})
+
+@halaman
+
+@baris
+Lampiran
+
+@judul
+DAFTAR MATA KULIAH YANG DITETAPKAN UNTUK PENGAKUAN SATUAN KREDIT
+SEMESTER PEMBELAJARAN MAGANG MANDIRI {{tahun_akademik}}
+PROGRAM STUDI SISTEM INFORMASI
+
+@baris
+Nama      : {{nama}}
+NPM       : {{npm}}
+Angkatan  : {{angkatan}}
+
+@tabel-matkul
+
+Daftar mata kuliah di atas ditetapkan oleh Program Studi Sistem Informasi sebagai dasar pengakuan satuan kredit semester pembelajaran Magang Mandiri {{tahun_akademik}}. Nilai mata kuliah diberikan setelah mahasiswa menyerahkan laporan penyelesaian dan mengikuti Ujian Capaian Pembelajaran.
+
+@tengah
+Depok, {{tanggal_surat}}
+Ketua Program Studi Sistem Informasi
+~
+~
+~
+(Dr. Naeli Umniati, S.T., M.M.S.I.)
