@@ -1,0 +1,15 @@
+/* Pemuatan: maskot melayang pelan. Dihentikan untuk pengguna yang mengurangi gerak. */
+.muat { display: grid; justify-items: center; padding: 56px 0; }
+.muat.penuh { min-height: 100vh; align-content: center; }
+.muat-owl { width: 120px; animation: muat-melayang 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; will-change: transform; }
+.muat-owl img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; filter: drop-shadow(0 10px 14px rgba(49, 22, 82, 0.2)); }
+.muat-bayangan { width: 64px; height: 8px; margin-top: 4px; border-radius: 50%; background: rgba(49, 22, 82, 0.2); filter: blur(4px); animation: muat-bayangan 3.6s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+@keyframes muat-melayang {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-10px) rotate(1.5deg); }
+}
+@keyframes muat-bayangan {
+  0%, 100% { transform: scaleX(1); opacity: 0.9; }
+  50% { transform: scaleX(0.7); opacity: 0.55; }
+}
+@media (prefers-reduced-motion: reduce) { .muat-owl, .muat-bayangan { animation: none; } }

@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — informasi dan pengaturan periode magang (FR-09). Periode terbaru yang dipublikasikan menjadi periode berjalan
 // di seluruh sistem (landing, dashboard mahasiswa, batas pengajuan surat, konversi, dan laporan). Draft belum terlihat mahasiswa.
 // Status tampilan: Aktif (dipublikasikan), Draft, Selesai (semua tenggat sudah lewat).
@@ -44,7 +45,7 @@ export function DaftarPeriode() {
             <option value="semua">Semua Status</option><option value="aktif">Aktif</option><option value="draft">Draft</option><option value="selesai">Selesai</option>
           </select>
         </div>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? (
           <p className="kosong">Belum ada periode yang cocok. Mahasiswa belum bisa mengajukan surat sampai periode dipublikasikan.</p>
         ) : (
           <div className="tabel-wrap">
@@ -88,7 +89,7 @@ export function DetailPeriode() {
   const { id } = useParams();
   const { data: p, error } = useApi(`/admin/periode/${id}`);
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!p) return <p className="sub">Memuat…</p>;
+  if (!p) return <Muat />;
   const ket = [['Maksimal Konversi', `${2} kali`], ['Minimal Semester', p.min_semester], ['Minimal IPK', Number(p.min_ipk).toFixed(2)], ['Ketentuan Nilai', 'Tidak ada nilai E']];
   return (
     <div className="halaman admin-lebar">
@@ -147,7 +148,7 @@ export function FormPeriode() {
   }, { judul: status === 'draft' ? 'Draft periode tersimpan' : id ? 'Perubahan periode tersimpan' : 'Periode dipublikasikan', teks: status === 'draft' ? null : 'Jadwal dan ketentuan langsung berlaku.' });
 
   if (id && error) return <p className="sub" role="alert">{error.message}</p>;
-  if (id && !ada) return <p className="sub">Memuat…</p>;
+  if (id && !ada) return <Muat />;
   const draft = id ? ada.status === 'draft' : false;
 
   return (

@@ -1,8 +1,10 @@
+import Muat from '../components/Muat.jsx';
 // HALAMAN MASUK, DAFTAR, LUPA KATA SANDI (publik). Dipakai semua peran: setelah masuk, peran dibaca server dari
 // tabel users, sehingga Admin Prodi dan Dosen Pendamping cukup diarahkan ke dasbor masing-masing (lihat arahPeran).
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { icon, logo } from '../assets';
+import { api } from '../api';
 import { supabase, supabaseSiap } from '../supabase';
 import { arahDari, pesanAuth, usePeran, useSesi } from './sesi';
 import './auth.css';
@@ -111,7 +113,7 @@ export function Masuk() {
       </form>
       <div className="auth-pemisah"><span>atau</span></div>
       <button type="button" className="btn garis auth-tombol" onClick={google} disabled={!supabaseSiap}>
-        <span className="g-huruf" aria-hidden="true">G</span>
+        <span className="g-huruf" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg></span>
         Masuk dengan Google
       </button>
     </Tata>
@@ -138,10 +140,16 @@ export function Daftar() {
     else setTerkirim(data.email.trim());
   });
 
-  function lanjut(e) {
+  async function lanjut(e) {
     e.preventDefault();
     const f = Object.fromEntries(new FormData(e.target));
     if (f.password !== f.ulang) return setGalatLokal('Kata sandi dan konfirmasinya tidak sama.');
+    try {
+      const { tersedia } = await api(`/publik/npm/${f.npm.trim()}`);
+      if (!tersedia) return setGalatLokal('NPM ini sudah terdaftar pada akun lain. Jika ini NPM Anda, hubungi Admin Prodi.');
+    } catch (err) {
+      return setGalatLokal(err.message);
+    }
     setGalatLokal(null);
     setIsi(f);
     setLangkah(2);
@@ -159,7 +167,7 @@ export function Daftar() {
       {langkah === 1 ? (
         <form onSubmit={lanjut} className="auth-form" key="l1">
           <Kolom label="Nama lengkap" name="nama" autoComplete="name" required maxLength={60} defaultValue={isi.nama} placeholder="Masukkan nama lengkap Anda" />
-          <Kolom label="NPM" name="npm" required inputMode="numeric" pattern="[0-9]{8,10}" title="8–10 digit angka" defaultValue={isi.npm} placeholder="Masukkan NPM Anda" />
+          <Kolom label="NPM" name="npm" required inputMode="numeric" pattern="[0-9]{8}" title="8 digit angka" defaultValue={isi.npm} placeholder="Masukkan NPM Anda" />
           <Kolom label="Email" name="email" type="email" autoComplete="email" required defaultValue={isi.email} placeholder="Masukkan email Anda" />
           <Sandi label="Kata sandi (minimal 8 karakter)" name="password" autoComplete="new-password" minLength={8} required defaultValue={isi.password} placeholder="Masukkan kata sandi Anda" />
           <Sandi label="Konfirmasi kata sandi" name="ulang" autoComplete="new-password" minLength={8} required defaultValue={isi.ulang} placeholder="Ulangi kata sandi Anda" />
@@ -170,7 +178,7 @@ export function Daftar() {
         <form onSubmit={kirim} className="auth-form" key="l2">
           <Kolom label="Fakultas" value="Ilmu Komputer dan Teknologi Informasi" readOnly />
           <Kolom label="Jurusan" value="Sistem Informasi" readOnly />
-          <Kolom label="Semester" name="semester" type="number" min="1" max="14" step="1" required defaultValue={isi.semester} placeholder="Masukkan semester Anda" />
+          <label>Semester<select name="semester" required defaultValue={isi.semester ?? ''}><option value="" disabled>Pilih semester</option>{[5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
           <Kolom label="IPK terakhir" name="ipk" type="number" min="0" max="4" step="0.01" required defaultValue={isi.ipk} placeholder="Masukkan IPK terakhir Anda" />
           <Kolom label="No. telepon" name="no_telepon" type="tel" required pattern="08[0-9]{8,11}" title="10–13 digit, diawali 08" defaultValue={isi.no_telepon} placeholder="Masukkan nomor telepon Anda" />
           <Kolom label="Alamat" name="alamat" required minLength={10} maxLength={200} defaultValue={isi.alamat} placeholder="Masukkan alamat rumah Anda" />
@@ -236,7 +244,7 @@ export function AturUlangPassword() {
 export function ArahPeran() {
   const { memuat, sesi } = useSesi();
   const p = usePeran(sesi);
-  if (memuat || (sesi && p.memuat)) return <p className="sub" style={{ padding: 32 }}>Memuat…</p>;
+  if (memuat || (sesi && p.memuat)) return <Muat penuh />;
   if (!sesi) return <Navigate to="/masuk" replace />;
   if (p.galat) return <p className="sub" role="alert" style={{ padding: 32 }}>{p.galat.message}</p>;
   return <Navigate to={arahDari(p.peran)} replace />;

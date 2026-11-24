@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: MAHASISWA (FR-06, FR-07, FR-08). Pemeriksaan, pemetaan SKS, dan penerbitan surat konversi dikerjakan Admin Prodi (src/admin/).
 import TautanBerkas from '../components/Berkas.jsx';
 import { useEffect, useRef, useState } from 'react';
@@ -41,7 +42,7 @@ export default function KonversiSks() {
   const dibuka = j?.status === 'dibuka';
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!data) return <p className="sub">Memuat…</p>;
+  if (!data) return <Muat />;
   const terakhir = data.konversi[0];
   const perluDilengkapi = data.konversi.filter((k) => ['draft', 'ditolak'].includes(k.status));
 
@@ -292,7 +293,7 @@ export function RiwayatKonversi() {
     <div className="halaman">
       <Kepala judul="Riwayat Pengajuan Konversi SKS" sub="Seluruh pengajuan konversi SKS Anda." />
       <section className="kartu masuk">
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.konversi.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.konversi.length === 0 ? (
           <p className="kosong">Belum ada pengajuan konversi.</p>
         ) : (
           <div className="tabel-wrap">
@@ -328,7 +329,7 @@ export function DetailKonversi() {
   const { me } = useOutletContext();
   const { data: k, error } = useApi(`/mahasiswa/konversi/${id}`);
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!k) return <p className="sub">Memuat…</p>;
+  if (!k) return <Muat />;
   const total = k.hasil?.matkul.reduce((t, m) => t + m.sks_diakui, 0);
 
   return (

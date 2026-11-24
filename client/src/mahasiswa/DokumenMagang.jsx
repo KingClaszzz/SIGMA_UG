@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: MAHASISWA (FR-12, FR-13). Dokumen diperiksa dosen pendamping (src/dosen/); status dan catatannya tampil di sini.
 import { beritahu } from '../components/Pemberitahuan.jsx';
 import TautanBerkas from '../components/Berkas.jsx';
@@ -20,7 +21,7 @@ const TAB = [
 const TAUTAN = { logbook: 'logbook', laporan_akhir: 'laporan-akhir', nilai_mitra: 'dokumen-mitra', sertifikat: 'dokumen-mitra' };
 const SUB = {
   ringkasan: 'Kumpulkan dan pantau logbook, laporan akhir, nilai mitra, dan sertifikat magang Anda.',
-  logbook: 'Catat kegiatan magang Anda. Dosen pendamping memantau logbook ini.',
+  logbook: 'Unggah logbook magang (opsional, PDF maksimal 2 MB).',
   'laporan-akhir': 'Unggah laporan akhir yang sudah ditandatangani dosen pendamping dan mitra.',
   'dokumen-mitra': 'Unggah nilai akhir dari mitra dan sertifikat magang.',
   monitoring: 'Pantau status pemeriksaan seluruh dokumen Anda.',
@@ -54,96 +55,8 @@ function BlokDokumen({ data, jenis, petunjuk, muat }) {
   );
 }
 
-const ENTRI_KOSONG = { tanggal: '', jam_mulai: '09:00', jam_selesai: '17:00', aktivitas: '', hasil: '', kendala: '' };
-
-// Metode 1 (Figma "Pengisian Logbook"): entri harian di sistem. "Kirim Logbook" merangkum semua entri jadi dokumen logbook untuk dosen.
 function Logbook({ data, muat }) {
-  const d = dok(data, 'logbook');
-  const { data: lb, muat: muatLb } = useApi('/mahasiswa/logbook');
-  const [form, setForm] = useState(ENTRI_KOSONG);
-  const [ubahId, setUbahId] = useState(null);
-  const [galat, setGalat] = useState(null);
-  const [sibuk, setSibuk] = useState(false);
-  const terkunci = d.status === 'disetujui' || data.batas_lewat;
-  const ubah = (k) => (e) => setForm({ ...form, [k]: e.target.value });
-
-  async function jalan(fn, pesan) {
-    setGalat(null);
-    setSibuk(true);
-    try {
-      await fn();
-      if (pesan) beritahu(pesan);
-    } catch (e) {
-      setGalat(e.message);
-    } finally {
-      setSibuk(false);
-    }
-  }
-  const simpan = (e) => {
-    e.preventDefault();
-    jalan(async () => {
-      await api(ubahId ? `/mahasiswa/logbook/${ubahId}` : '/mahasiswa/logbook', { method: ubahId ? 'PUT' : 'POST', body: form });
-      setForm(ENTRI_KOSONG);
-      setUbahId(null);
-      await muatLb();
-    }, { judul: ubahId ? 'Entri logbook diperbarui' : 'Entri logbook tersimpan', teks: 'Kirim logbook ke dosen setelah semua entri siap.' });
-  };
-  const kirim = () => jalan(async () => { await api('/mahasiswa/logbook/kirim', { method: 'POST' }); await muat(); }, { judul: 'Logbook terkirim', teks: 'Menunggu pemeriksaan dosen pendamping.' });
-  const hapus = (id) => jalan(async () => { await api(`/mahasiswa/logbook/${id}`, { method: 'DELETE' }); await muatLb(); });
-  const edit = (x) => { setUbahId(x.id); setForm({ tanggal: x.tanggal, jam_mulai: x.jam_mulai, jam_selesai: x.jam_selesai, aktivitas: x.aktivitas, hasil: x.hasil, kendala: x.kendala ?? '' }); window.scrollTo({ top: 0, behavior: 'smooth' }); };
-  const entri = lb?.entri ?? [];
-
-  return (
-    <>
-      <section className="kartu masuk">
-        <div className="kartu-kepala"><h2>Status Logbook</h2><Badge nilai={d.status} label={d.menunggu_ulang ? 'Menunggu pemeriksaan ulang' : undefined} /></div>
-        <p className="catatan-kecil" style={{ marginTop: 6 }}>Logbook bersifat opsional. Isi di sistem (metode 1) atau unggah dari perusahaan (metode 2). Dosen pendamping memeriksa logbook yang Anda kirim.</p>
-        {d.status === 'perlu_perbaikan' && <p className="banner-galat" role="status" style={{ marginTop: 12 }}><strong>Perlu perbaikan</strong>{d.catatan_dosen}{d.batas_revisi ? ` Batas revisi: ${tanggalAngka(d.batas_revisi)}.` : ''}</p>}
-        {d.status === 'disetujui' && <p className="banner-ok" role="status" style={{ marginTop: 12 }}>Logbook sudah disetujui dan tidak dapat diubah.</p>}
-      </section>
-
-      <div className="dua-kolom">
-        <form className="kartu masuk" onSubmit={simpan}>
-          <h2>Metode 1 · Isi Logbook di Sistem</h2>
-          <div className="grid-form" style={{ marginTop: 12 }}>
-            <label>Tanggal kegiatan *<input type="date" required disabled={terkunci} min={lb?.tgl_mulai} max={lb?.tgl_selesai && lb.tgl_selesai < new Date().toISOString().slice(0, 10) ? lb.tgl_selesai : new Date().toISOString().slice(0, 10)} value={form.tanggal} onChange={ubah('tanggal')} /></label>
-            <div className="grid-form" style={{ gap: 12 }}>
-              <label>Jam mulai *<input type="time" required disabled={terkunci} value={form.jam_mulai} onChange={ubah('jam_mulai')} /></label>
-              <label>Jam selesai *<input type="time" required disabled={terkunci} value={form.jam_selesai} onChange={ubah('jam_selesai')} /></label>
-            </div>
-            <label className="penuh">Deskripsi aktivitas *<textarea rows={3} required maxLength={1000} disabled={terkunci} value={form.aktivitas} onChange={ubah('aktivitas')} placeholder="Apa yang Anda kerjakan hari ini" /></label>
-            <label className="penuh">Hasil / pencapaian *<textarea rows={3} required maxLength={1000} disabled={terkunci} value={form.hasil} onChange={ubah('hasil')} /></label>
-            <label className="penuh">Kendala (opsional)<textarea rows={2} maxLength={500} disabled={terkunci} value={form.kendala} onChange={ubah('kendala')} /></label>
-          </div>
-          {galat && <p className="pesan galat" role="alert" style={{ marginTop: 12 }}>{galat}</p>}
-          <div className="baris-aksi">
-            {ubahId ? <button type="button" className="btn garis" onClick={() => { setUbahId(null); setForm(ENTRI_KOSONG); }}>Batal Ubah</button> : <span />}
-            <button className="btn kuning" type="submit" disabled={terkunci || sibuk}>{ubahId ? 'Simpan Perubahan' : 'Simpan Entri'}</button>
-          </div>
-        </form>
-
-        <section className="kartu masuk">
-          <h2>Entri Tersimpan <span className="pil">{entri.length}</span></h2>
-          {entri.length === 0 ? <p className="kosong" style={{ marginTop: 10 }}><strong>Belum ada entri</strong><br />Entri yang Anda simpan muncul di sini.</p> : (
-            <ul className="entri-logbook">
-              {entri.map((x) => (
-                <li key={x.id}>
-                  <strong>{tanggalAngka(x.tanggal)} · {x.jam_mulai}–{x.jam_selesai}</strong>
-                  <p>{x.aktivitas}</p>
-                  <small>Hasil: {x.hasil}{x.kendala ? ` · Kendala: ${x.kendala}` : ''}</small>
-                  {!terkunci && <span className="entri-aksi"><button type="button" className="aksi-kecil" onClick={() => edit(x)}>Ubah</button><button type="button" className="aksi-kecil" onClick={() => hapus(x.id)}>Hapus</button></span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          <button type="button" className="btn isi" style={{ marginTop: 14, width: '100%' }} disabled={terkunci || sibuk || entri.length === 0} onClick={kirim}>{d.status === 'perlu_perbaikan' ? 'Kirim Ulang Logbook' : 'Kirim Logbook ke Dosen'}</button>
-          <p className="catatan-kecil">Mengirim merangkum semua entri dan menggantikan logbook yang sebelumnya diunggah.</p>
-        </section>
-      </div>
-
-      <BlokDokumen data={data} jenis="logbook" muat={muat} petunjuk="Metode 2 · Unggah logbook sesuai format perusahaan tempat Anda magang (PDF). Mengunggah menggantikan entri yang sudah dikirim." />
-    </>
-  );
+  return <BlokDokumen data={data} jenis="logbook" muat={muat} petunjuk="Logbook bersifat opsional. Unggah logbook sesuai format perusahaan tempat Anda magang (PDF, maksimal 2 MB)." />;
 }
 
 function LaporanAkhir({ data, muat }) {
@@ -233,7 +146,7 @@ function Monitoring({ data }) {
                   <td>{d.diperiksa_pada ? tanggalAngka(d.diperiksa_pada) : d.diunggah_pada ? tanggalAngka(d.diunggah_pada) : '–'}</td>
                   <td><Badge nilai={d.status} label={d.menunggu_ulang ? 'Menunggu pemeriksaan ulang' : undefined} /></td>
                   <td>{d.catatan_dosen ?? '–'}</td>
-                  <td>{d.berkas ? <TautanBerkas className="btn garis kecil" path={`/mahasiswa/dokumen-magang/${d.jenis}/berkas`}>{d.jenis === 'laporan_akhir' && d.status === 'disetujui' ? 'Unduh' : 'Lihat'}</TautanBerkas> : d.ringkasan ? 'Ringkasan tertulis' : '–'}</td>
+                  <td>{d.berkas ? <TautanBerkas className="btn garis kecil" path={`/mahasiswa/dokumen-magang/${d.jenis}/berkas`}>{d.jenis === 'laporan_akhir' && d.status === 'disetujui' ? 'Unduh' : 'Lihat'}</TautanBerkas> : '–'}</td>
                 </tr>
               ))}
             </tbody>
@@ -248,7 +161,7 @@ export default function DokumenMagang() {
   const { tab = 'ringkasan' } = useParams();
   const { data, error, muat } = useApi('/mahasiswa/dokumen-magang');
 
-  const isi = !data ? <p className="kosong">Memuat…</p> : !data.ada_magang ? (
+  const isi = !data ? <Muat /> : !data.ada_magang ? (
     <section className="kartu masuk">
       <h2>Belum ada magang yang berjalan</h2>
       <p className="isi" style={{ margin: '6px 0 14px' }}>Dokumen magang dapat dikumpulkan setelah pengajuan konversi SKS Anda dikirim.</p>

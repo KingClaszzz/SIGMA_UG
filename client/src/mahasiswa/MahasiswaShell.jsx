@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // KERANGKA PERAN MAHASISWA: menu dan identitas mahasiswa di atas components/Kerangka.jsx.
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useApi } from '../api';
@@ -16,7 +17,7 @@ const menu = [
 // Pengaman: hanya mahasiswa yang sudah masuk boleh melihat halaman ini. Server tetap memverifikasi setiap permintaan.
 export default function MahasiswaShell() {
   const akses = useAkses('mahasiswa');
-  if (akses.status === 'memuat') return <p className="sub" style={{ padding: 32 }}>Memuat…</p>;
+  if (akses.status === 'memuat') return <Muat penuh />;
   if (akses.status === 'galat') return <p className="sub" role="alert" style={{ padding: 32 }}>{akses.galat.message}</p>;
   if (akses.status === 'tolak') return <Navigate to={akses.ke} replace state={akses.state} />;
   return <Isi />;
@@ -41,7 +42,7 @@ function Isi() {
       nama={me?.terdaftar ? me.nama : 'Lengkapi data diri'}
       sub={me?.terdaftar ? `${me.npm} · Sistem Informasi` : null}
     >
-      {me ? <Outlet context={{ me, muatMe: muat, periode }} /> : <p className="sub">Memuat…</p>}
+      {me ? <Outlet context={{ me, muatMe: muat, periode }} /> : <Muat />}
       {me?.terdaftar && <Tour email={me.email} />}
     </Kerangka>
   );

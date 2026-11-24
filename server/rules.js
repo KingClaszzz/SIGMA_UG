@@ -24,6 +24,8 @@ const hari = (iso, offset = 0) => {
   d.setUTCDate(d.getUTCDate() + offset);
   return d.toISOString().slice(0, 10);
 };
+// Dokumen pernah diminta perbaikan (riwayat_dokumen, aksi 'perbaikan'); dipakai untuk status "Menunggu Pemeriksaan Ulang".
+export const pernahPerbaikan = (alias) => `EXISTS (SELECT 1 FROM riwayat_dokumen rp WHERE rp.id_dokumen = ${alias}.id_dokumen AND rp.aksi = 'perbaikan') AS pernah_perbaikan`;
 export const hariIni = () => new Date().toISOString().slice(0, 10);
 
 export const statusRentang = (buka, tutup, sekarang = hariIni()) =>
@@ -57,8 +59,7 @@ export function validasiIdentitas(p) {
 export function validasiProfil(p) {
   const ipk = Number(p.ipk);
   if (p.ipk === '' || p.ipk == null || !(ipk >= 0 && ipk <= 4)) return 'IPK harus berada pada rentang 0 sampai 4.';
-  if (!Number.isInteger(Number(p.jumlah_sks)) || Number(p.jumlah_sks) < 0) return 'Jumlah SKS harus berupa bilangan bulat.';
-  if (!Number.isInteger(Number(p.semester)) || Number(p.semester) < 1) return 'Semester harus berupa bilangan bulat.';
+  if (![5, 6, 7].includes(Number(p.semester))) return 'Semester harus 5, 6, atau 7.';
   if (!/^08\d{8,11}$/.test(p.no_telepon ?? '')) return 'Nomor telepon harus 10–13 digit dan diawali 08.';
   if (!teks(p.alamat, 200) || p.alamat.trim().length < 10) return 'Alamat wajib diisi (10–200 karakter).';
   return null;
@@ -87,20 +88,6 @@ export function validasiPengajuan(b, kategori) {
 
 // FR-06 / UI-08 informasi magang pada surat penerimaan.
 export const validasiPenerimaan = (b) => (teks(b.posisi, 100) ? validasiRentang(b) : 'Posisi / divisi magang wajib diisi (maksimal 100 karakter).');
-
-// Entri logbook harian (Figma: tanggal, jam, deskripsi aktivitas, hasil, kendala opsional). Tanggal harus dalam masa magang dan tidak di masa depan.
-export function validasiLogbook(b, magang) {
-  if (!tanggalSah(b.tanggal)) return 'Tanggal kegiatan wajib diisi.';
-  if (b.tanggal < magang.tgl_mulai || b.tanggal > magang.tgl_selesai) return 'Tanggal kegiatan harus berada dalam periode magang Anda.';
-  if (b.tanggal > hariIni()) return 'Tanggal kegiatan tidak boleh di masa depan.';
-  const jam = /^([01]\d|2[0-3]):[0-5]\d$/;
-  if (!jam.test(b.jam_mulai ?? '') || !jam.test(b.jam_selesai ?? '')) return 'Jam mulai dan jam selesai wajib diisi (format JJ:MM).';
-  if (b.jam_selesai <= b.jam_mulai) return 'Jam selesai harus setelah jam mulai.';
-  if (!teks(b.aktivitas, 1000)) return 'Deskripsi aktivitas wajib diisi (maksimal 1000 karakter).';
-  if (!teks(b.hasil, 1000)) return 'Hasil atau pencapaian wajib diisi (maksimal 1000 karakter).';
-  if (b.kendala && b.kendala.length > 500) return 'Kendala maksimal 500 karakter.';
-  return null;
-}
 
 export function validasiPdf(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) return 'Berkas harus berupa PDF.';

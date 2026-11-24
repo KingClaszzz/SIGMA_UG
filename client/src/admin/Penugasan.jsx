@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — penugasan dosen pendamping (FR-11). Dosen ditetapkan (atau diganti) untuk konversi yang sudah disetujui;
 // surat konversi sudah terbit saat konversi disetujui (admin/Konversi.jsx), jadi penugasan tidak menerbitkan surat.
 import { useState } from 'react';
@@ -32,7 +33,7 @@ export function DaftarPenugasan() {
         <div className="alat-tabel">
           <input type="search" placeholder="Cari nama, NPM, atau perusahaan…" aria-label="Cari mahasiswa" value={cari} onChange={(e) => setCari(e.target.value)} />
         </div>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? (
           <p className="kosong">{tab === 'belum' ? 'Semua konversi yang disetujui sudah punya dosen pendamping.' : 'Belum ada penugasan.'}</p>
         ) : (
           <div className="tabel-wrap">
@@ -67,7 +68,7 @@ export function DetailPenugasan() {
   const { sibuk, galat, jalan } = useAksi(muat);
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!k || !dosen) return <p className="sub">Memuat…</p>;
+  if (!k || !dosen) return <Muat />;
   const m = k.mahasiswa;
   const total = k.matkul.reduce((t, x) => t + x.sks_diakui, 0);
   const tampil = dosen.filter((d) => `${d.nama} ${d.nidn}`.toLowerCase().includes(cari.trim().toLowerCase()));

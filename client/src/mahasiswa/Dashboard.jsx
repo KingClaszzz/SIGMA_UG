@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: MAHASISWA. Dasbor Admin Prodi dan Dosen Pendamping berbeda (ringkasan antrean validasi / mahasiswa
 // bimbingan) dan dibangun terpisah di src/admin/ dan src/dosen/.
 import TautanBerkas from '../components/Berkas.jsx';
@@ -38,7 +39,7 @@ export default function Dashboard() {
   const { data: d, error } = useApi('/mahasiswa/dashboard');
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!d) return <p className="sub">Memuat…</p>;
+  if (!d) return <Muat />;
 
   return (
     <div className="halaman">

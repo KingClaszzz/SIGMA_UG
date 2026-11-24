@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — monitoring magang (hanya baca). Admin memantau pengumpulan dokumen akhir mahasiswa; pemeriksaan dokumen
 // dilakukan Dosen Pendamping (FR-14), jadi halaman ini tidak punya tombol setujui/tolak.
 import { useState } from 'react';
@@ -43,7 +44,7 @@ export function DaftarMonitoring() {
             <option value="semua">Semua Status Dokumen</option><option value="belum_lengkap">Belum Lengkap</option><option value="menunggu">Menunggu Pemeriksaan</option><option value="selesai">Selesai Diperiksa</option>
           </select>
         </div>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.data.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.data.length === 0 ? (
           <p className="kosong">Belum ada data monitoring yang cocok.</p>
         ) : (
           <>
@@ -88,7 +89,7 @@ export function DetailMonitoring() {
   const { id } = useParams();
   const { data: k, error } = useApi(`/admin/monitoring/${id}`);
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!k) return <p className="sub">Memuat…</p>;
+  if (!k) return <Muat />;
   const m = k.mahasiswa;
   const total = k.matkul.reduce((t, x) => t + x.sks_diakui, 0);
 
@@ -138,7 +139,6 @@ export function DetailMonitoring() {
                   <div><dt>Diperiksa oleh</dt><dd>{d.pemeriksa ?? '–'}</dd></div>
                   <div><dt>Tanggal pemeriksaan</dt><dd>{d.diperiksa_pada ? tanggalAngka(d.diperiksa_pada) : '–'}</dd></div>
                 </dl>
-                {d.ringkasan && <p className="isi" style={{ marginTop: 10 }}><strong>Ringkasan:</strong> {d.ringkasan}</p>}
                 {d.catatan_dosen && <p className="banner-peringatan" style={{ marginTop: 10 }}><strong>Catatan dosen</strong>{d.catatan_dosen}</p>}
                 <DaftarPratinjau berkas={[{ kunci: d.jenis, label: d.label, nama: d.berkas?.nama, path: `/admin/monitoring/${k.id}/dokumen/${d.jenis}` }]} />
                 <h3 className="sub-judul">Riwayat</h3>

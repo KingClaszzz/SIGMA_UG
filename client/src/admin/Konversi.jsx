@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — konversi SKS (FR-06, FR-07, FR-08).
 // Alur: periksa berkas (diajukan → ditinjau) → pemetaan mata kuliah dan SKS → "Setujui Konversi" menerbitkan surat konversi (→ diterbitkan).
 // Dosen pendamping ditetapkan terpisah di Penugasan Dosen (admin/Penugasan.jsx).
@@ -46,7 +47,7 @@ export function DaftarKonversi() {
             {FILTER.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
           </select>
         </div>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? (
           <p className="kosong">Tidak ada pengajuan konversi yang cocok.</p>
         ) : (
           <div className="tabel-wrap">
@@ -143,7 +144,7 @@ export function DetailKonversiAdmin() {
   const periksa = (body) => jalan(() => api(`/admin/konversi/${id}/periksa`, { method: 'POST', body }), body.lengkap ? { judul: 'Berkas dinyatakan lengkap', teks: 'Lanjut ke pemetaan mata kuliah.' } : { judul: 'Pengajuan konversi ditolak', teks: 'Alasan penolakan dikirim ke mahasiswa.' });
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!k) return <p className="sub">Memuat…</p>;
+  if (!k) return <Muat />;
   const disetujui = ['diterbitkan', 'selesai'].includes(k.status);
 
   return (
@@ -250,7 +251,7 @@ export function PemetaanKonversi() {
   const { sibuk, galat, jalan } = useAksi();
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!k || !daftar) return <p className="sub">Memuat…</p>;
+  if (!k || !daftar) return <Muat />;
   if (!['ditinjau', 'diproses'].includes(k.status)) return <div className="halaman"><p className="banner-info">Pemetaan hanya bisa diubah saat pengajuan sedang ditinjau. <Link to={`/admin/konversi/${id}`} style={{ fontWeight: 600, textDecoration: 'underline' }}>Kembali ke detail</Link></p></div>;
 
   const awal = k.matkul.map((x) => ({ id_matkul: x.id_matkul, sks_diakui: x.sks_diakui, keterangan: x.keterangan }));

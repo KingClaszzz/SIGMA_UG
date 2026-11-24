@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — surat rekomendasi (FR-03, FR-04, FR-05).
 // Menyetujui pengajuan = surat langsung terbit (tidak ada langkah terbit terpisah). Daftar: cari, filter status, validasi massal (FR-04).
 // Detail: pemeriksaan per pengajuan (setujui, minta perbaikan, tolak) atau ringkasan pengajuan yang sudah disetujui.
@@ -77,7 +78,7 @@ export function DaftarRekomendasi() {
             {FILTER.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
           </select>
         </div>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? (
           <p className="kosong">Tidak ada pengajuan yang cocok.</p>
         ) : (
           <div className="tabel-wrap">
@@ -136,7 +137,7 @@ export function DetailRekomendasiAdmin() {
   const kirim = (rute, body, pesan) => jalan(async () => { await api(`/admin/rekomendasi/${rute}`, { method: 'POST', body }); setMode(null); setCatatan(''); }, pesan);
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!p) return <p className="sub">Memuat…</p>;
+  if (!p) return <Muat />;
   const m = p.mahasiswa;
   const terverifikasi = m.status_verifikasi === 'terverifikasi';
   const berkas = DOKUMEN.map(([jenis, label]) => {

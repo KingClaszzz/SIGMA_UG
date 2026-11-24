@@ -17,5 +17,12 @@ export default function routerPublik({ db }) {
     });
   });
 
+  // Cek NPM sebelum daftar (tanpa login): satu NPM hanya boleh dipakai satu akun.
+  r.get('/npm/:npm', async (req, res) => {
+    if (!/^\d{8}$/.test(req.params.npm)) return res.status(400).json({ error: 'NPM harus 8 digit angka.' });
+    const { rows } = await db.query('SELECT 1 FROM mahasiswa WHERE npm = $1', [req.params.npm]);
+    res.json({ tersedia: rows.length === 0 });
+  });
+
   return r;
 }

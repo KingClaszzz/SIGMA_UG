@@ -15,7 +15,7 @@ Terakhir diperbarui: 22 November 2026. Isinya: (A) laporan singkat yang sudah ja
 - Data diri (diverifikasi admin), riwayat magang (opsional), ubah password.
 - Surat rekomendasi: draft → unggah 3 dokumen wajib → kirim → unduh surat PDF setelah disetujui.
 - Konversi SKS: unduh Form Isian Magang, unggah surat penerimaan dan silabus, kirim, lihat hasil pemetaan, unduh surat konversi.
-- Dokumen magang: laporan akhir, nilai mitra, sertifikat, logbook (file atau ringkasan). Lihat catatan dosen, batas revisi, dan unduh laporan yang sudah ditandatangani.
+- Dokumen magang: laporan akhir, nilai mitra, sertifikat, logbook (opsional, PDF maks 2 MB). Lihat catatan dosen, batas revisi, dan unduh laporan yang sudah ditandatangani.
 
 **Maskot**
 - Maskot lama (kena hak cipta) dihapus total, diganti burung hantu SIGMA dari gambar yang dikasih (3 pose: jas di hero dan sidebar dosen, laptop di banner footer dan sidebar mahasiswa, papan di sidebar admin). Aset: `client/src/assets/owl-*.webp`, komponen: `client/src/components/Maskot.jsx` + `maskot.css`.
@@ -29,7 +29,7 @@ Terakhir diperbarui: 22 November 2026. Isinya: (A) laporan singkat yang sudah ja
 - Lonceng notifikasi mahasiswa (surat terbit/ditolak/minta perbaikan, konversi, dokumen diperiksa, laporan ditandatangani, dosen ditetapkan, pengingat tenggat).
 - Surat rekomendasi: kolom Alamat di Data Mahasiswa, timeline 4 langkah, tombol unduh/status di kartu Status Pengajuan, banner dan label "Perlu Perbaikan" kalau admin minta perbaikan.
 - Konversi SKS: timeline 3 langkah, riwayat ada Tgl Persetujuan + Unduh Surat, hasil konversi ada kolom Semester, tombol "Lihat Hasil Konversi" dan "Lihat Riwayat".
-- Dokumen Magang: logbook harian di sistem (entri tanggal/jam/aktivitas/hasil/kendala, ubah, hapus, kirim ke dosen) di samping unggah logbook; tab Laporan Akhir ada Status Tanda Tangan + tombol template; tab Monitoring ada kolom Pemeriksa dan Tanggal.
+- Dokumen Magang: logbook hanya unggah PDF opsional (maks 2 MB); tab Laporan Akhir ada Status Tanda Tangan + tombol template; tab Monitoring ada kolom Pemeriksa dan Tanggal.
 
 **Admin Prodi** (ngikut PNG Figma)
 - Dashboard, lonceng notifikasi, Informasi Periode (draft/publikasi, Aktif/Draft/Selesai), Pengajuan Surat Rekomendasi (setujui = surat langsung terbit, minta perbaikan, tolak, validasi massal), Penerimaan Konversi SKS (periksa, pemetaan mata kuliah, setujui = surat konversi terbit), Penugasan Dosen, Monitoring Magang, Manajemen Akun (buat/aktifkan/nonaktifkan akun dosen, verifikasi data mahasiswa).
@@ -109,7 +109,7 @@ UNIQUE (id_pengajuan, jenis_dokumen).
 | penerimaan_magang | nama_surat_penerimaan | VARCHAR(120) | |
 | penerimaan_magang | ukuran_surat_penerimaan | INTEGER | byte |
 | detail_konversi | keterangan | VARCHAR(200) | kolom Keterangan di lampiran surat; kosong = teks bawaan template |
-| dokumen_akhir | ringkasan | TEXT | logbook tertulis (BR-06) |
+| dokumen_akhir | file_dokumen, nama_asli, ukuran | NOT NULL | logbook opsional dan hanya berupa PDF, jadi selalu ada berkas |
 | dokumen_akhir | status_periksa | VARCHAR(20) | diperluas: `menunggu`, `perlu_perbaikan`, `disetujui` |
 | dokumen_akhir | pernah_perbaikan | BOOLEAN, default FALSE | TRUE = tampil "Menunggu Pemeriksaan Ulang" |
 | dokumen_akhir | batas_revisi | DATE | opsional, diisi dosen |
@@ -117,21 +117,7 @@ UNIQUE (id_pengajuan, jenis_dokumen).
 | dokumen_akhir | nama_ttd | VARCHAR(120) | nama file laporan bertanda tangan |
 | dokumen_akhir | ditandatangani_pada | TIMESTAMPTZ | |
 
-**`logbook_entri`** — entri logbook harian mahasiswa (tabel baru)
-
-| Kolom | Tipe | Keterangan |
-|---|---|---|
-| id_entri | SERIAL | PK |
-| id_penerimaan | INTEGER | FK → penerimaan_magang, ON DELETE CASCADE |
-| tanggal | DATE | Not Null, harus dalam periode magang dan tidak di masa depan |
-| jam_mulai | TIME | Not Null |
-| jam_selesai | TIME | Not Null, setelah jam_mulai |
-| aktivitas | VARCHAR(1000) | Not Null |
-| hasil | VARCHAR(1000) | Not Null |
-| kendala | VARCHAR(500) | Null |
-| dibuat_pada | TIMESTAMPTZ | default `now()` |
-
-Saat "Kirim Logbook", semua entri dirangkum ke `dokumen_akhir.ringkasan` (jenis `logbook`, status `menunggu`) supaya dosen memeriksanya lewat alur yang sudah ada.
+**Dihapus:** tabel `logbook_entri` dan kolom `dokumen_akhir.ringkasan` (logbook sekarang cuma unggah PDF opsional). Migrasi ada di akhir `schema.sql` (`DROP TABLE`, `DROP COLUMN`, `SET NOT NULL`), jalan lewat `npm run db:siapkan`.
 
 Indeks unik tambahan: `surat_nomor_unik` pada `surat(nomor_surat)`. Library baru di server: `pdf-lib` (tempel blok tanda tangan ke PDF).
 
@@ -174,7 +160,7 @@ Gua cuma ngecek teksnya, tampilan visualnya belum gua lihat. Buka PDF hasilnya, 
 - **Logo mitra di landing:** nggak gua tampilin karena butuh izin perusahaan.
 
 ### 5. Figma yang beda atau belum
-- Logbook di Figma dosen kayak banyak entri (aktivitas/hasil/kendala/lampiran). Di sistem logbook itu satu dokumen (file atau ringkasan), jadi detailnya cuma nampilin itu. Progres dokumen ngitung 3 dokumen wajib, bukan 4.
+- Logbook di Figma dosen kayak banyak entri (aktivitas/hasil/kendala/lampiran). Di sistem logbook itu satu berkas PDF opsional, jadi detailnya cuma nampilin itu. Progres dokumen ngitung 3 dokumen wajib, bukan 4.
 - Tombol Google di Figma dosen "Login Staff Gunadarma dengan Google", di sini satu halaman login buat semua peran.
 - Kolom desain admin yang dilewatin karena nggak ada di skema: Kelas, Pembimbing perusahaan, Kesesuaian, deskripsi pekerjaan.
 - Tab "Perlu Perbaikan" di konversi (Figma) nggak ada statusnya, dipetakan ke tahap Pemetaan.
@@ -182,7 +168,7 @@ Gua cuma ngecek teksnya, tampilan visualnya belum gua lihat. Buka PDF hasilnya, 
 
 ### 5b. Beda dari Figma di role mahasiswa
 - **Lupa Password** di Figma pakai kode verifikasi ("Kirim Kode Verifikasi"), di sini pakai tautan reset lewat email (cara standar Supabase). Kalau mau kode OTP, pakai `supabase.auth.verifyOtp`.
-- **Logbook** di Figma punya status per entri dan lampiran per entri. Di sini status ada di tingkat dokumen logbook (dosen periksa hasil rangkuman semua entri), dan lampiran per entri belum ada (unggah logbook perusahaan tetap bisa lewat metode 2).
+- **Logbook** di Figma punya status per entri dan lampiran per entri. Di sini logbook cuma satu berkas PDF opsional (maks 2 MB), status di tingkat dokumen; entri harian dihapus.
 - Timeline surat rekomendasi Figma punya langkah "Menunggu tanda tangan Kaprodi/Sekprodi". Karena admin setuju = surat langsung terbit, langkah 2 sampai 4 selesai barengan.
 - Ringkasan konversi di dashboard dan kartu "Status Pengajuan Saat Ini" dipertahankan seperti sebelumnya (sudah sesuai).
 
@@ -202,5 +188,25 @@ Gua cuma ngecek teksnya, tampilan visualnya belum gua lihat. Buka PDF hasilnya, 
 - Daftar admin belum ada paginasi (kecuali Monitoring admin).
 - Bundel JS klien sekitar 600 KB, bisa di-split pakai `React.lazy` per peran.
 - `.env` jangan di-commit (udah di `.gitignore`).
+
+## Sinkron dengan SDD v2 (terbaru)
+
+Tabel dan kolom dicocokkan dengan `docs/Versi2_03_SDD.docx`. Dari 20 tabel, semuanya sama kecuali poin berikut.
+
+- **Aturan:** kolom yang ada di SDD v2 dipertahankan, yang tidak ada dihapus.
+- **Dihapus** (tidak ada di SDD, migrasi sudah jalan di Supabase): `mahasiswa.jumlah_sks`, `dokumen_akhir.pernah_perbaikan`, `dokumen_akhir.ukuran`, `penerimaan_magang.nama_surat_penerimaan` dan `ukuran_surat_penerimaan`, `pengajuan_konversi.nama_silabus` dan `ukuran_silabus`.
+  - Status "Menunggu Pemeriksaan Ulang" sekarang dibaca dari `riwayat_dokumen` (aksi `perbaikan`), bukan dari kolom.
+  - Nama berkas surat penerimaan dan silabus ditampilkan sebagai "Surat penerimaan.pdf" dan "Silabus.pdf".
+- **Dipertahankan, beda dengan SDD:**
+  - `dokumen_akhir.ringkasan` sudah dihapus sesuai keputusan logbook upload-only (SDD masih mencantumkannya).
+  - `dokumen_akhir.file_dokumen` dan `nama_asli` sekarang Null, sesuai SDD.
+- **NPM:** unik (sudah di skema). Saat daftar, NPM dicek lewat `GET /api/publik/npm/:npm`. Jika sudah dipakai akun lain, pendaftaran ditolak.
+- **Lepas NPM (admin):** `POST /api/admin/mahasiswa/:id/lepas-npm` menghapus data diri mahasiswa dan menonaktifkan akunnya, supaya pemilik NPM bisa mendaftar ulang. Ditolak bila akun sudah punya pengajuan atau riwayat magang. Tidak ada tabel baru.
+- **Semester:** dropdown 5, 6, atau 7 di pendaftaran dan profil. Server juga memvalidasi.
+- **IPK:** input 0,00–4,00 sesuai SDD. Syarat minimal mengikuti `periode_magang.min_ipk` (default 3,00).
+- **Format tanggal:** dd/mm/yyyy.
+- **Logo Google:** logo resmi 4 warna.
+
+Yang perlu diperbaiki di SDD v2 nanti: paragraf tabel users masih menyebut `password_hash` (bcrypt), padahal login memakai Supabase Auth (`auth_id`). Paragraf dokumen_akhir juga masih menyebut ringkasan.
 
 Acuan aturan bisnis: `docs/` (Definisi, SRS, SDD). Peta folder dan cara jalanin: README.

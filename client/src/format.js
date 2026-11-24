@@ -4,7 +4,7 @@ const hariJakarta = (iso) => (iso.length > 10 ? new Date(iso).toLocaleDateString
 const tgl = (iso) => new Date(`${hariJakarta(iso)}T00:00:00Z`);
 
 export const tanggalPanjang = (iso) => tgl(iso).toLocaleDateString('id-ID', { ...opsi, day: 'numeric', month: 'long', year: 'numeric' });
-export const tanggalAngka = (iso) => tgl(iso).toLocaleDateString('id-ID', { ...opsi, day: '2-digit', month: '2-digit', year: 'numeric' }).replaceAll('/', '-');
+export const tanggalAngka = (iso) => tgl(iso).toLocaleDateString('id-ID', { ...opsi, day: '2-digit', month: '2-digit', year: 'numeric' });
 
 // "1 Juli – 31 Agustus 2026"
 export function rentang(buka, tutup) {

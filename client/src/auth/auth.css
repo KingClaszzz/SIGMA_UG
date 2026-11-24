@@ -50,9 +50,7 @@
 .auth-pesan li:nth-child(1) { animation-delay: 0.3s; }
 .auth-pesan li:nth-child(2) { animation-delay: 0.4s; }
 .auth-pesan li:nth-child(3) { animation-delay: 0.5s; }
-.auth-pesan li:hover { transform: translateX(6px); }
 .auth-ikon { transition: background-color 0.2s, transform 0.25s var(--ease); }
-.auth-pesan li:hover .auth-ikon { background: rgba(240, 184, 73, 0.28); transform: scale(1.1) rotate(-6deg); }
 .auth-merek img { transition: transform 0.35s var(--ease); }
 .auth-merek:hover img { transform: rotate(-8deg) scale(1.08); }
 
@@ -73,5 +71,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .auth-pesan > *, .auth-pesan li, .auth-form { animation: none; }
-  .auth-pesan li:hover, .auth-tombol:hover, .auth-form input:focus, .auth-mata:hover, .auth-merek:hover img, .auth-pesan li:hover .auth-ikon { transform: none; }
+  .auth-tombol:hover, .auth-form input:focus, .auth-mata:hover, .auth-merek:hover img { transform: none; }
 }

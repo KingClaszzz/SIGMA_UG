@@ -9,7 +9,7 @@ import UbahPassword from '../components/UbahPassword.jsx';
 import { beritahu } from '../components/Pemberitahuan.jsx';
 import './profile.css';
 
-const awal = { nama: '', npm: '', email: '', ipk: '', jumlah_sks: '', semester: '', no_telepon: '', alamat: '', status_aktif: true, status_cuti: false, ada_nilai_e: false };
+const awal = { nama: '', npm: '', email: '', ipk: '', semester: '', no_telepon: '', alamat: '', status_aktif: true, status_cuti: false, ada_nilai_e: false };
 
 function Pesan({ pesan }) {
   return pesan && <p className={`pesan ${pesan.galat ? 'galat' : 'ok'}`} role="status">{pesan.teks}</p>;
@@ -70,11 +70,8 @@ function DataDiri({ me, onSimpan, onSelesai }) {
         <label>IPK
           <input type="number" step="0.01" min="0" max="4" required value={form.ipk} onChange={ubah('ipk')} />
         </label>
-        <label>Jumlah SKS
-          <input type="number" step="1" min="0" required value={form.jumlah_sks} onChange={ubah('jumlah_sks')} />
-        </label>
         <label>Semester
-          <input type="number" step="1" min="1" required value={form.semester} onChange={ubah('semester')} />
+          <select required value={form.semester} onChange={ubah('semester')}><option value="" disabled>Pilih semester</option>{[5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}</select>
         </label>
         <label>Nomor telepon
           <input type="tel" required pattern="08[0-9]{8,11}" title="10–13 digit, diawali 08" value={form.no_telepon} onChange={ubah('no_telepon')} />
@@ -156,7 +153,7 @@ const inisial = (nama = '') => nama.split(/\s+/).filter(Boolean).slice(0, 2).map
 function Ringkasan({ me, onEdit }) {
   const data = [
     ['Email', me.email], ['Nomor telepon', me.no_telepon], ['Fakultas', 'Ilmu Komputer dan Teknologi Informasi'], ['Program Studi', 'Sistem Informasi'],
-    ['Semester', me.semester], ['IPK terakhir', Number(me.ipk).toFixed(2)], ['Jumlah SKS', me.jumlah_sks], ['Alamat', me.alamat ?? '–'],
+    ['Semester', me.semester], ['IPK terakhir', Number(me.ipk).toFixed(2)], ['Alamat', me.alamat ?? '–'],
   ];
   return (
     <>

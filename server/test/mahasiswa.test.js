@@ -32,7 +32,7 @@ const periode = async (tutup) => {
   if (!rowCount) await db.query('INSERT INTO periode_magang (tahun_akademik, gelombang, tgl_buka, tgl_tutup, batas_konversi, batas_laporan) VALUES ($1, 1, $2, $3, $4, $5)', nilai);
 };
 const form = { id_kategori: 2, nama_perusahaan: 'PT Uji', kepada: 'HRD', alamat_perusahaan: 'Depok', tgl_mulai: '2026-11-01', tgl_selesai: '2027-01-31' };
-const akademik = { ipk: 3.4, jumlah_sks: 110, semester: 7, no_telepon: '081234567890', alamat: 'Jl. Margonda Raya No. 100, Depok', status_aktif: true };
+const akademik = { ipk: 3.4, semester: 7, no_telepon: '081234567890', alamat: 'Jl. Margonda Raya No. 100, Depok', status_aktif: true };
 
 test('akses ditolak tanpa token yang sah, dan hanya untuk peran mahasiswa', async () => {
   assert.equal((await req(null, 'GET', '/mahasiswa/me')).status, 401);
@@ -70,7 +70,7 @@ test('alur mahasiswa dari data diri sampai dokumen akhir', async () => {
   assert.deepEqual((await A('GET', `/rekomendasi/${p.id}`)).data.riwayat.map((x) => x.status), ['draft', 'diajukan']);
 
   // mahasiswa lain tidak bisa melihat pengajuan ini
-  await db.query("INSERT INTO mahasiswa (id_user, npm, ipk, jumlah_sks, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e) SELECT id_user, '11129999', 3.2, 100, 7, '081200000000', true, false, false FROM users WHERE email = 'b@uji.test'");
+  await db.query("INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e) SELECT id_user, '11129999', 3.2, 7, '081200000000', true, false, false FROM users WHERE email = 'b@uji.test'");
   assert.equal((await B('GET', `/rekomendasi/${p.id}`)).status, 404);
 
   // konversi hanya setelah surat terbit dan periode konversi dibuka
@@ -94,8 +94,7 @@ test('alur mahasiswa dari data diri sampai dokumen akhir', async () => {
   // dokumen magang
   const awal = (await A('GET', '/dokumen-magang')).data;
   assert.deepEqual([awal.ada_magang, awal.wajib_total, awal.selesai], [true, 3, false]);
-  assert.equal((await A('PUT', '/dokumen-magang/logbook/ringkasan', { body: { ringkasan: 'pendek' } })).status, 400);
-  assert.equal((await A('PUT', '/dokumen-magang/logbook/ringkasan', { body: { ringkasan: 'Mengerjakan modul pelaporan selama tiga bulan.' } })).status, 200);
+  assert.equal((await A('POST', '/dokumen-magang/logbook', { berkas: PDF })).data.dokumen.find((x) => x.jenis === 'logbook').status, 'menunggu');
   const laporan = (await A('POST', '/dokumen-magang/laporan_akhir', { berkas: PDF })).data;
   assert.equal(laporan.dokumen.find((x) => x.jenis === 'laporan_akhir').status, 'menunggu');
   await db.query("UPDATE dokumen_akhir SET status_periksa = 'disetujui' WHERE jenis_dokumen = 'laporan_akhir'"); // tindakan Dosen
@@ -136,22 +135,7 @@ test('anti-spam: maksimal 3 kali kirim surat rekomendasi per 7 hari, pengajuan d
   assert.match(keempat.data.error, /maksimal 3 kali per 7 hari/);
 });
 
-test('logbook harian: validasi, ubah, hapus, kirim jadi dokumen logbook; notifikasi mahasiswa', async () => {
-  const entri = { tanggal: '2026-11-10', jam_mulai: '09:00', jam_selesai: '17:00', aktivitas: 'Menyusun modul pelaporan', hasil: 'Modul selesai 80 persen', kendala: '' };
-  assert.equal((await A('POST', '/logbook', { body: { ...entri, tanggal: '2020-01-01' } })).status, 400); // di luar masa magang
-  assert.equal((await A('POST', '/logbook', { body: { ...entri, tanggal: '2099-01-01' } })).status, 400);
-  assert.equal((await A('POST', '/logbook', { body: { ...entri, jam_selesai: '08:00' } })).status, 400);
-  assert.equal((await A('POST', '/logbook', { body: { ...entri, aktivitas: '' } })).status, 400);
-  assert.equal((await A('POST', '/logbook/kirim')).status, 400); // belum ada entri
-  const a = (await A('POST', '/logbook', { body: entri })).data;
-  const b = (await A('POST', '/logbook', { body: { ...entri, tanggal: '2026-11-11', kendala: 'Server lambat' } })).data;
-  assert.equal((await A('PUT', `/logbook/${a.id}`, { body: { ...entri, hasil: 'Modul selesai 100 persen' } })).data.hasil, 'Modul selesai 100 persen');
-  assert.equal((await B('PUT', `/logbook/${a.id}`, { body: entri })).status, 409); // mahasiswa lain tidak punya magang
-  assert.equal((await A('DELETE', `/logbook/${b.id}`)).status, 200);
-  assert.equal((await A('GET', '/logbook')).data.entri.length, 1);
-
-  const dok = (await A('POST', '/logbook/kirim')).data.dokumen.find((x) => x.jenis === 'logbook');
-  assert.deepEqual([dok.status, dok.ringkasan.includes('Modul selesai 100 persen')], ['menunggu', true]);
+test('logbook: unggah PDF opsional; notifikasi mahasiswa', async () => {
   assert.equal((await A('GET', '/dokumen-magang')).data.template_laporan_tersedia, false);
   assert.equal((await A('GET', '/dokumen-magang/laporan_akhir/template')).status, 404);
 

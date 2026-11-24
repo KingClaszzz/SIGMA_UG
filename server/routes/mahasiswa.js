@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { Galat, catat, iso, kirimPdf, q, riwayatDari, salah, satu } from '../lib.js';
 import {
   BATAS_KIRIM_MINGGUAN, BATAS_MAGANG, DOKUMEN_AKHIR, DOKUMEN_REKOMENDASI, cekKelayakan, hariIni, jadwal, nomorTampil,
-  validasiIdentitas, validasiLogbook, validasiPdf, validasiPengajuan, validasiPenerimaan, validasiProfil, validasiRiwayat,
+  validasiIdentitas, validasiPdf, validasiPengajuan, validasiPenerimaan, validasiProfil, validasiRiwayat, pernahPerbaikan,
 } from '../rules.js';
 
 const TEMPLATE_LAPORAN = fileURLToPath(new URL('../templates/Template_Laporan_Akhir.docx', import.meta.url));
@@ -61,7 +61,7 @@ export default function routerMahasiswa({ db, storage }) {
     if (!m) return { terdaftar: false, nama: user.nama, email: user.email, batas_magang: BATAS_MAGANG };
     const riwayat = await q(c, 'SELECT id_riwayat AS id, nama_perusahaan, tahun, sumber FROM riwayat_magang WHERE id_mahasiswa = $1 ORDER BY tahun, id_riwayat', [m.id_mahasiswa]);
     return {
-      terdaftar: true, nama: user.nama, email: user.email, npm: m.npm, ipk: m.ipk, jumlah_sks: m.jumlah_sks, semester: m.semester,
+      terdaftar: true, nama: user.nama, email: user.email, npm: m.npm, ipk: m.ipk, semester: m.semester,
       alamat: m.alamat, no_telepon: m.no_telepon, status_aktif: m.status_aktif, status_cuti: m.status_cuti, ada_nilai_e: m.ada_nilai_e,
       status_verifikasi: m.status_verifikasi, catatan_verifikasi: m.catatan_verifikasi, riwayat_magang: riwayat, batas_magang: BATAS_MAGANG,
     };
@@ -81,20 +81,20 @@ export default function routerMahasiswa({ db, storage }) {
     salah(validasiProfil(b));
     try {
       await db.transaksi(async (c) => {
-        const nilai = [Number(b.ipk), Number(b.jumlah_sks), Number(b.semester), b.no_telepon, !!b.status_aktif, !!b.status_cuti, !!b.ada_nilai_e, b.alamat.trim()];
+        const nilai = [Number(b.ipk), Number(b.semester), b.no_telepon, !!b.status_aktif, !!b.status_cuti, !!b.ada_nilai_e, b.alamat.trim()];
         if (ada) {
           // Data berubah → Admin Prodi perlu memverifikasi ulang (FR-16).
-          await c.query(`UPDATE mahasiswa SET ipk=$1, jumlah_sks=$2, semester=$3, no_telepon=$4, status_aktif=$5, status_cuti=$6, ada_nilai_e=$7, alamat=$8,
-            status_verifikasi='menunggu', catatan_verifikasi=NULL WHERE id_user=$9`, [...nilai, user.id_user]);
+          await c.query(`UPDATE mahasiswa SET ipk=$1, semester=$2, no_telepon=$3, status_aktif=$4, status_cuti=$5, ada_nilai_e=$6, alamat=$7,
+            status_verifikasi='menunggu', catatan_verifikasi=NULL WHERE id_user=$8`, [...nilai, user.id_user]);
         } else {
           await c.query('UPDATE users SET nama = $1 WHERE id_user = $2', [b.nama.trim(), user.id_user]);
-          await c.query(`INSERT INTO mahasiswa (id_user, npm, ipk, jumlah_sks, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, alamat)
-            VALUES ($9, $10, $1, $2, $3, $4, $5, $6, $7, $8)`, [...nilai, user.id_user, b.npm]);
+          await c.query(`INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, alamat)
+            VALUES ($8, $9, $1, $2, $3, $4, $5, $6, $7)`, [...nilai, user.id_user, b.npm]);
           user.nama = b.nama.trim();
         }
       });
     } catch (e) {
-      if (e.code === '23505') throw new Galat(409, 'NPM sudah terdaftar pada akun lain.');
+      if (e.code === '23505') throw new Galat(409, 'NPM ini sudah terdaftar pada akun lain. Jika ini NPM Anda, hubungi Admin Prodi.');
       throw e;
     }
     res.json(await tampilProfil(db, user));
@@ -146,7 +146,7 @@ export default function routerMahasiswa({ db, storage }) {
         riwayat: riwayatDari(rw, 'pengajuan_rekomendasi', p.id_pengajuan),
         dokumen_syarat: DOKUMEN_REKOMENDASI.map((x) => {
           const d = dok.find((i) => i.id_pengajuan === p.id_pengajuan && i.jenis_dokumen === x.jenis);
-          return { ...x, berkas: berkas(d?.nama_asli, d?.ukuran) };
+          return { ...x, berkas: berkas(d?.nama_asli) };
         }),
         surat: s ? { nomor_surat: s.nomor_surat, diterbitkan_pada: iso(s.diterbitkan_pada) } : null,
         punya_konversi: penerimaan.some((x) => x.id_pengajuan === p.id_pengajuan),
@@ -250,7 +250,7 @@ export default function routerMahasiswa({ db, storage }) {
   // ---------- konversi SKS (FR-06, FR-07, FR-08; UI-08, UI-09) ----------
   // Satu pengajuan_konversi selalu bertaut ke satu penerimaan_magang (SDD tabel 10 dan 11).
   async function muatKonversi(c, idMhs, id) {
-    const rows = await q(c, `SELECT k.*, n.id_pengajuan, n.posisi, n.tgl_mulai, n.tgl_selesai, n.file_surat_penerimaan, n.nama_surat_penerimaan, n.ukuran_surat_penerimaan, p.nama_perusahaan
+    const rows = await q(c, `SELECT k.*, n.id_pengajuan, n.posisi, n.tgl_mulai, n.tgl_selesai, n.file_surat_penerimaan, p.nama_perusahaan
       FROM pengajuan_konversi k JOIN penerimaan_magang n ON n.id_penerimaan = k.id_penerimaan JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan
       WHERE p.id_mahasiswa = $1 ${id ? 'AND k.id_konversi = $2' : ''} ORDER BY k.id_konversi`, id ? [idMhs, id] : [idMhs]);
     if (!rows.length) return [];
@@ -274,8 +274,8 @@ export default function routerMahasiswa({ db, storage }) {
         posisi: k.posisi,
         tgl_mulai: k.tgl_mulai,
         tgl_selesai: k.tgl_selesai,
-        surat_penerimaan: berkas(k.nama_surat_penerimaan, k.ukuran_surat_penerimaan),
-        silabus: berkas(k.nama_silabus, k.ukuran_silabus),
+        surat_penerimaan: k.file_surat_penerimaan ? { nama: 'Surat penerimaan.pdf' } : null,
+        silabus: k.file_silabus ? { nama: 'Silabus.pdf' } : null,
         dosen_pendamping: namaDosen,
         hasil: matkul.length && ['diproses', 'diterbitkan', 'selesai'].includes(k.status) ? { dosen_pendamping: namaDosen, matkul } : null, // pemetaan belum final sebelum disetujui
         surat_tersedia: surat.some((s) => s.id_konversi === k.id_konversi),
@@ -337,17 +337,17 @@ export default function routerMahasiswa({ db, storage }) {
 
   // Dua berkas konversi tersimpan di tabel berbeda; peta ini menjaga SQL tetap satu pola.
   const BERKAS_KONVERSI = {
-    'surat-penerimaan': { tabel: 'penerimaan_magang', kunci: 'id_pengajuan', nilai: (k) => k.id_pengajuan, kolom: ['file_surat_penerimaan', 'nama_surat_penerimaan', 'ukuran_surat_penerimaan'] },
-    silabus: { tabel: 'pengajuan_konversi', kunci: 'id_konversi', nilai: (k) => k.id, kolom: ['file_silabus', 'nama_silabus', 'ukuran_silabus'] },
+    'surat-penerimaan': { tabel: 'penerimaan_magang', kunci: 'id_pengajuan', nilai: (k) => k.id_pengajuan, kolom: 'file_surat_penerimaan' },
+    silabus: { tabel: 'pengajuan_konversi', kunci: 'id_konversi', nilai: (k) => k.id, kolom: 'file_silabus' },
   };
   for (const [rute, b] of Object.entries(BERKAS_KONVERSI)) {
     r.post(`/konversi/:id/${rute}`, pdf, async (req, res) => {
       const isi = dokumenPdf(req);
       const { m, k } = await konversiSaya(db, req.user, req.params.id, { ubah: true });
-      const lama = await satu(db, `SELECT ${b.kolom[0]} AS file FROM ${b.tabel} WHERE ${b.kunci} = $1`, [b.nilai(k)]);
+      const lama = await satu(db, `SELECT ${b.kolom} AS file FROM ${b.tabel} WHERE ${b.kunci} = $1`, [b.nilai(k)]);
       const lokasi = await storage.simpan(isi, `mahasiswa/${m.id_mahasiswa}/konversi`);
       try {
-        await db.query(`UPDATE ${b.tabel} SET ${b.kolom[0]} = $1, ${b.kolom[1]} = $2, ${b.kolom[2]} = $3 WHERE ${b.kunci} = $4`, [lokasi, namaBerkas(req), isi.length, b.nilai(k)]);
+        await db.query(`UPDATE ${b.tabel} SET ${b.kolom} = $1 WHERE ${b.kunci} = $2`, [lokasi, b.nilai(k)]);
       } catch (e) {
         await storage.hapus(lokasi);
         throw e;
@@ -357,9 +357,9 @@ export default function routerMahasiswa({ db, storage }) {
     });
     r.get(`/konversi/:id/${rute}`, async (req, res) => {
       const { k } = await konversiSaya(db, req.user, req.params.id);
-      const d = await satu(db, `SELECT ${b.kolom[0]} AS file, ${b.kolom[1]} AS nama FROM ${b.tabel} WHERE ${b.kunci} = $1`, [b.nilai(k)]);
+      const d = await satu(db, `SELECT ${b.kolom} AS file FROM ${b.tabel} WHERE ${b.kunci} = $1`, [b.nilai(k)]);
       if (!d?.file) throw new Galat(404, 'Berkas belum tersedia.');
-      kirimPdf(res, await storage.baca(d.file), d.nama);
+      kirimPdf(res, await storage.baca(d.file), `${rute}.pdf`);
     });
   }
 
@@ -401,7 +401,7 @@ export default function routerMahasiswa({ db, storage }) {
   async function tampilDokumenMagang(c, idMhs) {
     const mg = await magangAktif(c, idMhs);
     if (!mg) return { ada_magang: false };
-    const docs = await q(c, 'SELECT * FROM dokumen_akhir WHERE id_penerimaan = $1', [mg.id_penerimaan]);
+    const docs = await q(c, `SELECT *, ${pernahPerbaikan('dokumen_akhir')} FROM dokumen_akhir WHERE id_penerimaan = $1`, [mg.id_penerimaan]);
     const dosen = await satu(c, 'SELECT u.nama FROM penugasan_dosen pd JOIN dosen ds ON ds.id_dosen = pd.id_dosen JOIN users u ON u.id_user = ds.id_user WHERE pd.id_konversi = $1', [mg.id_konversi]);
     const periode = await periodeTerbaru(c);
     const pemeriksa = await q(c, 'SELECT d.id_dokumen, u.nama FROM dokumen_akhir d JOIN dosen ds ON ds.id_dosen = d.diperiksa_oleh JOIN users u ON u.id_user = ds.id_user WHERE d.id_penerimaan = $1', [mg.id_penerimaan]);
@@ -414,8 +414,7 @@ export default function routerMahasiswa({ db, storage }) {
         menunggu_ulang: a?.status_periksa === 'menunggu' && a.pernah_perbaikan,
         batas_revisi: a?.status_periksa === 'perlu_perbaikan' ? a.batas_revisi : null,
         ada_ttd: !!a?.file_ttd,
-        berkas: berkas(a?.nama_asli, a?.ukuran),
-        ringkasan: a?.ringkasan ?? null,
+        berkas: berkas(a?.nama_asli),
         catatan_dosen: a?.catatan_dosen ?? null,
         diunggah_pada: iso(a?.diunggah_pada) ?? null,
         diperiksa_pada: iso(a?.diperiksa_pada) ?? null,
@@ -452,12 +451,12 @@ export default function routerMahasiswa({ db, storage }) {
     if (periode?.batas_laporan && hariIni() > periode.batas_laporan) throw new Galat(409, 'Batas pengumpulan dokumen sudah lewat.');
     const lama = await satu(c, 'SELECT * FROM dokumen_akhir WHERE id_penerimaan = $1 AND jenis_dokumen = $2', [mg.id_penerimaan, jenis]);
     if (lama?.status_periksa === 'disetujui') throw new Galat(409, 'Dokumen yang sudah disetujui tidak dapat diganti.');
-    const baru = await c.query(`INSERT INTO dokumen_akhir (id_penerimaan, jenis_dokumen, file_dokumen, nama_asli, ukuran, ringkasan)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      ON CONFLICT (id_penerimaan, jenis_dokumen) DO UPDATE SET file_dokumen = EXCLUDED.file_dokumen, nama_asli = EXCLUDED.nama_asli, ukuran = EXCLUDED.ukuran,
-        ringkasan = EXCLUDED.ringkasan, status_periksa = 'menunggu', catatan_dosen = NULL, batas_revisi = NULL, diperiksa_oleh = NULL, diperiksa_pada = NULL, diunggah_pada = now()
+    const baru = await c.query(`INSERT INTO dokumen_akhir (id_penerimaan, jenis_dokumen, file_dokumen, nama_asli)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (id_penerimaan, jenis_dokumen) DO UPDATE SET file_dokumen = EXCLUDED.file_dokumen, nama_asli = EXCLUDED.nama_asli,
+        status_periksa = 'menunggu', catatan_dosen = NULL, batas_revisi = NULL, diperiksa_oleh = NULL, diperiksa_pada = NULL, diunggah_pada = now()
       RETURNING id_dokumen`,
-    [mg.id_penerimaan, jenis, isi.file ?? null, isi.nama ?? null, isi.ukuran ?? null, isi.ringkasan ?? null]);
+    [mg.id_penerimaan, jenis, isi.file, isi.nama]);
     await c.query("INSERT INTO riwayat_dokumen (id_dokumen, aksi, oleh) VALUES ($1, 'diunggah', $2)", [baru.rows[0].id_dokumen, isi.oleh]);
     return lama?.file_dokumen;
   }
@@ -471,21 +470,11 @@ export default function routerMahasiswa({ db, storage }) {
     const lokasi = await storage.simpan(isi, `mahasiswa/${m.id_mahasiswa}/dokumen-akhir`);
     let lama;
     try {
-      lama = await db.transaksi((c) => simpanDokumenAkhir(c, m.id_mahasiswa, jenis, { file: lokasi, nama: namaBerkas(req), ukuran: isi.length, oleh: req.user.id_user }));
+      lama = await db.transaksi((c) => simpanDokumenAkhir(c, m.id_mahasiswa, jenis, { file: lokasi, nama: namaBerkas(req), oleh: req.user.id_user }));
     } catch (e) {
       await storage.hapus(lokasi);
       throw e;
     }
-    await storage.hapus(lama);
-    res.json(await tampilDokumenMagang(db, m.id_mahasiswa));
-  });
-
-  // Logbook tanpa format perusahaan diganti ringkasan kegiatan (BR-06, US-17).
-  r.put('/dokumen-magang/logbook/ringkasan', async (req, res) => {
-    const ringkasan = (req.body?.ringkasan ?? '').trim();
-    salah(ringkasan.length >= 20 && ringkasan.length <= 5000 ? null : 'Ringkasan kegiatan harus 20–5000 karakter.');
-    const m = await perluProfil(db, req.user);
-    const lama = await db.transaksi((c) => simpanDokumenAkhir(c, m.id_mahasiswa, 'logbook', { ringkasan, oleh: req.user.id_user }));
     await storage.hapus(lama);
     res.json(await tampilDokumenMagang(db, m.id_mahasiswa));
   });
@@ -509,61 +498,6 @@ export default function routerMahasiswa({ db, storage }) {
   r.get('/dokumen-magang/laporan_akhir/template', (_req, res) => {
     if (!fs.existsSync(TEMPLATE_LAPORAN)) throw new Galat(404, 'Template laporan akhir belum disediakan prodi.');
     res.download(TEMPLATE_LAPORAN);
-  });
-
-  // ---------- logbook harian di sistem (Figma "Pengisian Logbook", metode 1) ----------
-  // Entri disimpan per hari; "Kirim Logbook" merangkum semua entri menjadi dokumen logbook yang diperiksa dosen (status menunggu).
-  const bentukEntri = (e) => ({ id: e.id_entri, tanggal: e.tanggal, jam_mulai: e.jam_mulai.slice(0, 5), jam_selesai: e.jam_selesai.slice(0, 5), aktivitas: e.aktivitas, hasil: e.hasil, kendala: e.kendala });
-  async function logbookTerbuka(c, idMhs) {
-    const mg = await magangAktif(c, idMhs);
-    if (!mg) throw new Galat(409, 'Belum ada magang yang berjalan. Ajukan konversi SKS terlebih dahulu.');
-    const a = await satu(c, "SELECT status_periksa FROM dokumen_akhir WHERE id_penerimaan = $1 AND jenis_dokumen = 'logbook'", [mg.id_penerimaan]);
-    if (a?.status_periksa === 'disetujui') throw new Galat(409, 'Logbook sudah disetujui dan tidak dapat diubah.');
-    return mg;
-  }
-
-  r.get('/logbook', async (req, res) => {
-    const m = await perluProfil(db, req.user);
-    const mg = await magangAktif(db, m.id_mahasiswa);
-    if (!mg) return res.json({ ada_magang: false, entri: [] });
-    const rows = await q(db, 'SELECT * FROM logbook_entri WHERE id_penerimaan = $1 ORDER BY tanggal DESC, jam_mulai DESC', [mg.id_penerimaan]);
-    res.json({ ada_magang: true, tgl_mulai: mg.tgl_mulai, tgl_selesai: mg.tgl_selesai, entri: rows.map(bentukEntri) });
-  });
-
-  const simpanEntri = (ubah) => async (req, res) => {
-    const m = await perluProfil(db, req.user);
-    const mg = await logbookTerbuka(db, m.id_mahasiswa);
-    salah(validasiLogbook(req.body ?? {}, mg));
-    const b = req.body;
-    const nilai = [b.tanggal, b.jam_mulai, b.jam_selesai, b.aktivitas.trim(), b.hasil.trim(), b.kendala?.trim() || null];
-    const baris = ubah
-      ? await satu(db, 'UPDATE logbook_entri SET tanggal = $1, jam_mulai = $2, jam_selesai = $3, aktivitas = $4, hasil = $5, kendala = $6 WHERE id_entri = $7 AND id_penerimaan = $8 RETURNING *', [...nilai, Number(req.params.id), mg.id_penerimaan])
-      : await satu(db, 'INSERT INTO logbook_entri (tanggal, jam_mulai, jam_selesai, aktivitas, hasil, kendala, id_penerimaan) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *', [...nilai, mg.id_penerimaan]);
-    if (!baris) throw new Galat(404, 'Entri logbook tidak ditemukan.');
-    res.status(ubah ? 200 : 201).json(bentukEntri(baris));
-  };
-  r.post('/logbook', simpanEntri(false));
-  r.put('/logbook/:id', simpanEntri(true));
-
-  r.delete('/logbook/:id', async (req, res) => {
-    const m = await perluProfil(db, req.user);
-    const mg = await logbookTerbuka(db, m.id_mahasiswa);
-    const h = await satu(db, 'DELETE FROM logbook_entri WHERE id_entri = $1 AND id_penerimaan = $2 RETURNING id_entri', [Number(req.params.id), mg.id_penerimaan]);
-    if (!h) throw new Galat(404, 'Entri logbook tidak ditemukan.');
-    res.json({ ok: true });
-  });
-
-  r.post('/logbook/kirim', async (req, res) => {
-    const m = await perluProfil(db, req.user);
-    const lama = await db.transaksi(async (c) => {
-      const mg = await logbookTerbuka(c, m.id_mahasiswa);
-      const rows = await q(c, 'SELECT * FROM logbook_entri WHERE id_penerimaan = $1 ORDER BY tanggal, jam_mulai', [mg.id_penerimaan]);
-      if (!rows.length) throw new Galat(400, 'Tambahkan minimal satu entri logbook sebelum mengirim.');
-      const ringkasan = rows.map((e) => `${e.tanggal} ${e.jam_mulai.slice(0, 5)}–${e.jam_selesai.slice(0, 5)} | ${e.aktivitas} | Hasil: ${e.hasil}${e.kendala ? ` | Kendala: ${e.kendala}` : ''}`).join('\n');
-      return simpanDokumenAkhir(c, m.id_mahasiswa, 'logbook', { ringkasan, oleh: req.user.id_user });
-    });
-    await storage.hapus(lama); // logbook di sistem menggantikan berkas logbook yang sebelumnya diunggah
-    res.json(await tampilDokumenMagang(db, m.id_mahasiswa));
   });
 
   // ---------- notifikasi (lonceng) ----------

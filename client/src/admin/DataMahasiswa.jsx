@@ -1,7 +1,8 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — verifikasi data diri mahasiswa (FR-16; UI-12). Daftar mahasiswa ada di Manajemen Akun, tab Mahasiswa (admin/Akun.jsx). Sistem belum terhubung ke StudentSite, jadi admin mencocokkan
 // data yang diisi mahasiswa dengan data akademik resmi sebelum pengajuannya bisa divalidasi.
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, useAksi, useApi } from '../api';
 import Badge from '../components/Badge.jsx';
 
@@ -11,12 +12,14 @@ export function DetailMahasiswa() {
   const { id } = useParams();
   const { data: m, error, muat } = useApi(`/admin/mahasiswa/${id}`);
   const [catatan, setCatatan] = useState('');
+  const [yakinLepas, setYakinLepas] = useState(false);
+  const navigate = useNavigate();
   const { sibuk, galat, jalan } = useAksi(muat);
   const verifikasi = (status) => jalan(() => api(`/admin/mahasiswa/${id}/verifikasi`, { method: 'PUT', body: { status, catatan } }),
     status === 'terverifikasi' ? { judul: 'Data diri terverifikasi', teks: 'Pengajuan mahasiswa kini bisa divalidasi.' } : { jenis: 'info', judul: 'Ditandai tidak sesuai', teks: 'Catatan dikirim agar mahasiswa memperbaiki data diri.' });
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!m) return <p className="sub">Memuat…</p>;
+  if (!m) return <Muat />;
 
   return (
     <div className="halaman" style={{ maxWidth: 860 }}>
@@ -32,7 +35,6 @@ export function DetailMahasiswa() {
         {m.catatan_verifikasi && <p className="banner-peringatan" style={{ margin: '12px 0' }}>Catatan sebelumnya: {m.catatan_verifikasi}</p>}
         <dl className="kv-grid" style={{ marginTop: 12 }}>
           <div className="kv"><dt>IPK</dt><dd>{Number(m.ipk).toFixed(2)}</dd></div>
-          <div className="kv"><dt>Jumlah SKS</dt><dd>{m.jumlah_sks}</dd></div>
           <div className="kv"><dt>Semester</dt><dd>{m.semester}</dd></div>
           <div className="kv"><dt>Nomor telepon</dt><dd>{m.no_telepon}</dd></div>
           <div className="kv"><dt>Mahasiswa aktif</dt><dd>{ya(m.status_aktif)}</dd></div>
@@ -49,6 +51,17 @@ export function DetailMahasiswa() {
           </ul>
         )}
         <p className="catatan-kecil">Batas dua kali magang mencakup magang mandiri. Pastikan riwayat sesuai data akademik.</p>
+      </section>
+
+      <section className="kartu">
+        <h2>Lepas NPM</h2>
+        <p className="isi">Dipakai bila NPM ini didaftarkan oleh akun yang salah. Data diri akun dihapus dan akunnya dinonaktifkan, supaya pemilik NPM bisa mendaftar ulang. Tidak bisa dilakukan jika akun sudah punya pengajuan atau riwayat magang.</p>
+        {!yakinLepas ? <button type="button" className="btn garis" style={{ marginTop: 12 }} onClick={() => setYakinLepas(true)}>Lepas NPM…</button> : (
+          <div className="baris-aksi" style={{ marginTop: 12 }}>
+            <button type="button" className="btn garis" onClick={() => setYakinLepas(false)}>Batal</button>
+            <button type="button" className="btn kuning" disabled={sibuk} onClick={() => jalan(async () => { await api(`/admin/mahasiswa/${id}/lepas-npm`, { method: 'POST' }); navigate('/admin/akun?tab=mahasiswa'); }, { judul: 'NPM dilepas', teks: 'Akun dinonaktifkan dan data diri dihapus. Pemilik NPM dapat mendaftar ulang.' })}>Ya, lepas NPM</button>
+          </div>
+        )}
       </section>
 
       <section className="kartu">

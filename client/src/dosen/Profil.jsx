@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: DOSEN PENDAMPING — profil: data dosen, ubah nomor telepon, dan ubah password. NIDN dan email ditetapkan Admin Prodi.
 import { useState } from 'react';
 import { api, useAksi, useApi } from '../api';
@@ -11,7 +12,7 @@ export default function ProfilDosen() {
   const [telepon, setTelepon] = useState('');
   const { sibuk, galat, jalan } = useAksi(muat);
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!p) return <p className="sub">Memuat…</p>;
+  if (!p) return <Muat />;
   return (
     <div className="halaman admin-lebar">
       <section className="kartu profil-kepala masuk">

@@ -32,19 +32,19 @@ async function akun(token, peran) {
 // Satu mahasiswa dengan konversi diterbitkan; `dosen` = id_dosen yang ditugaskan (atau null).
 async function bimbing(token, npm, idDosen) {
   const idUser = await akun(token, 'mahasiswa');
-  const { rows: [m] } = await db.query(`INSERT INTO mahasiswa (id_user, npm, ipk, jumlah_sks, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, status_verifikasi)
-    VALUES ($1, $2, 3.5, 100, 7, '081200000000', true, false, false, 'terverifikasi') RETURNING id_mahasiswa`, [idUser, npm]);
+  const { rows: [m] } = await db.query(`INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, status_verifikasi)
+    VALUES ($1, $2, 3.5, 7, '081200000000', true, false, false, 'terverifikasi') RETURNING id_mahasiswa`, [idUser, npm]);
   const { rows: [p] } = await db.query(`INSERT INTO pengajuan_rekomendasi (id_mahasiswa, id_kategori, nama_perusahaan, kepada, alamat_perusahaan, tgl_mulai, tgl_selesai, status)
     VALUES ($1, 2, 'PT Uji', 'HRD', 'Depok', '2027-01-04', '2027-04-02', 'diterbitkan') RETURNING id_pengajuan`, [m.id_mahasiswa]);
-  const { rows: [pen] } = await db.query(`INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, file_surat_penerimaan, nama_surat_penerimaan, ukuran_surat_penerimaan, pilih_konversi, status)
-    VALUES ($1, 'Dev', '2027-01-04', '2027-04-02', 'x.pdf', 'sp.pdf', 10, true, 'diterima_perusahaan') RETURNING id_penerimaan`, [p.id_pengajuan]);
-  const { rows: [k] } = await db.query("INSERT INTO pengajuan_konversi (id_penerimaan, file_silabus, nama_silabus, ukuran_silabus, status) VALUES ($1, 's.pdf', 'sil.pdf', 10, 'diterbitkan') RETURNING id_konversi", [pen.id_penerimaan]);
+  const { rows: [pen] } = await db.query(`INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, file_surat_penerimaan, pilih_konversi, status)
+    VALUES ($1, 'Dev', '2027-01-04', '2027-04-02', 'x.pdf', true, 'diterima_perusahaan') RETURNING id_penerimaan`, [p.id_pengajuan]);
+  const { rows: [k] } = await db.query("INSERT INTO pengajuan_konversi (id_penerimaan, file_silabus, status) VALUES ($1, 's.pdf', 'diterbitkan') RETURNING id_konversi", [pen.id_penerimaan]);
   if (idDosen) await db.query('INSERT INTO penugasan_dosen (id_konversi, id_dosen) VALUES ($1, $2)', [k.id_konversi, idDosen]);
   return { idKonversi: k.id_konversi, idPenerimaan: pen.id_penerimaan };
 }
 async function dokumen(idPenerimaan, jenis) {
   const lokasi = await storage.simpan(jenis === 'laporan_akhir' ? PDF_ASLI : Buffer.from('%PDF-1.4 uji'), 'uji');
-  const { rows: [d] } = await db.query("INSERT INTO dokumen_akhir (id_penerimaan, jenis_dokumen, file_dokumen, nama_asli, ukuran) VALUES ($1, $2, $3, $4, 12) RETURNING id_dokumen", [idPenerimaan, jenis, lokasi, `${jenis}.pdf`]);
+  const { rows: [d] } = await db.query("INSERT INTO dokumen_akhir (id_penerimaan, jenis_dokumen, file_dokumen, nama_asli) VALUES ($1, $2, $3, $4) RETURNING id_dokumen", [idPenerimaan, jenis, lokasi, `${jenis}.pdf`]);
   await db.query("INSERT INTO riwayat_dokumen (id_dokumen, aksi) VALUES ($1, 'diunggah')", [d.id_dokumen]);
 }
 

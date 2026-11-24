@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — manajemen akun (FR-16). Tab Dosen: buat akun Dosen Pendamping, aktifkan/nonaktifkan.
 // Tab Mahasiswa: status verifikasi data diri (membuka admin/DataMahasiswa.jsx) dan aktifkan/nonaktifkan akun.
 import { useState } from 'react';
@@ -64,7 +65,7 @@ function TabDosen() {
         <select aria-label="Status akun" value={status} onChange={(e) => setStatus(e.target.value)}><option value="semua">Semua Status</option><option value="aktif">Aktif</option><option value="nonaktif">Nonaktif</option></select>
         <button className="btn kuning kecil" onClick={() => setTambah(true)}>+ Tambah Akun Dosen</button>
       </div>
-      {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? <p className="kosong">Belum ada akun dosen yang cocok.</p> : (
+      {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? <p className="kosong">Belum ada akun dosen yang cocok.</p> : (
         <div className="tabel-wrap">
           <table>
             <thead><tr><th>Nama Dosen</th><th>NIDN</th><th>Email</th><th>Mahasiswa Bimbingan</th><th>Status</th><th><span className="sr">Aksi</span></th></tr></thead>
@@ -100,7 +101,7 @@ function TabMahasiswa() {
           <option value="semua">Semua Status</option><option value="menunggu">Menunggu Verifikasi</option><option value="terverifikasi">Terverifikasi</option><option value="tidak_sesuai">Tidak Sesuai</option>
         </select>
       </div>
-      {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? <p className="kosong">Tidak ada mahasiswa yang cocok.</p> : (
+      {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? <p className="kosong">Tidak ada mahasiswa yang cocok.</p> : (
         <div className="tabel-wrap">
           <table>
             <thead><tr><th>Nama Mahasiswa</th><th>NPM</th><th>Email</th><th>Verifikasi Data Diri</th><th>Status Akun</th><th><span className="sr">Aksi</span></th></tr></thead>

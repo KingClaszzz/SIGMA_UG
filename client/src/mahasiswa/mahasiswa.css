@@ -50,9 +50,3 @@
 .kv-kartu dt { font-size: 12px; color: var(--violet-39); }
 .kv-kartu dd { margin: 4px 0 0; font-size: 14px; font-weight: 600; }
 
-.entri-logbook { display: grid; gap: 10px; margin: 12px 0 0; padding: 0; max-height: 380px; overflow-y: auto; list-style: none; }
-.entri-logbook li { position: relative; padding: 12px 14px; border: 1px solid var(--grey-92); border-radius: 10px; background: #f8f6fd; }
-.entri-logbook strong { display: block; font-size: 13px; color: var(--violet-24); }
-.entri-logbook p { margin: 4px 0; font-family: var(--font-inter); font-size: 13px; }
-.entri-logbook small { display: block; font-size: 12px; color: var(--violet-39); }
-.entri-aksi { display: flex; gap: 4px; margin-top: 6px; }

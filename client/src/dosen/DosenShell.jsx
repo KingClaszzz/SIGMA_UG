@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // KERANGKA PERAN DOSEN PENDAMPING: menu dan identitas dosen di atas components/Kerangka.jsx. Akun dibuat Admin Prodi (Manajemen Akun).
 // Memakai gaya admin/admin.css (tabel, kartu statistik, dialog) agar tampilannya seragam dengan admin.
 import { Navigate, Outlet } from 'react-router-dom';
@@ -15,7 +16,7 @@ const menu = [
 
 export default function DosenShell() {
   const akses = useAkses('dosen');
-  if (akses.status === 'memuat') return <p className="sub" style={{ padding: 32 }}>Memuat…</p>;
+  if (akses.status === 'memuat') return <Muat penuh />;
   if (akses.status === 'galat') return <p className="sub" role="alert" style={{ padding: 32 }}>{akses.galat.message}</p>;
   if (akses.status === 'tolak') return <Navigate to={akses.ke} replace state={akses.state} />;
   return <Isi />;

@@ -2,7 +2,7 @@
 // memantau dokumen akhir, memeriksa (setujui / minta perbaikan), dan mengesahkan laporan akhir (FR-14, FR-15).
 import express from 'express';
 import { Galat, iso, kirimPdf, q, salah, satu } from '../lib.js';
-import { DOKUMEN_AKHIR, alasanSah, hariIni, tanggalSah, validasiPdf } from '../rules.js';
+import { DOKUMEN_AKHIR, alasanSah, hariIni, pernahPerbaikan, tanggalSah, validasiPdf } from '../rules.js';
 import { bubuhiTandaTangan } from '../ttd.js';
 
 const WAJIB = DOKUMEN_AKHIR.filter((d) => d.wajib).map((d) => d.jenis);
@@ -37,7 +37,7 @@ export default function routerDosen({ db, storage }) {
       JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan LEFT JOIN periode_magang pr ON pr.id_periode = p.id_periode
       JOIN mahasiswa m ON m.id_mahasiswa = p.id_mahasiswa JOIN users u ON u.id_user = m.id_user
       WHERE pd.id_dosen = $1 AND ($2::int IS NULL OR k.id_konversi = $2) ORDER BY pd.ditetapkan_pada DESC`, [req.dosen.id_dosen, idKonversi]);
-    const docs = rows.length ? await q(db, 'SELECT * FROM dokumen_akhir WHERE id_penerimaan = ANY($1::int[])', [rows.map((x) => x.id_penerimaan)]) : [];
+    const docs = rows.length ? await q(db, `SELECT *, ${pernahPerbaikan('dokumen_akhir')} FROM dokumen_akhir WHERE id_penerimaan = ANY($1::int[])`, [rows.map((x) => x.id_penerimaan)]) : [];
     return rows.map((x) => {
       const mine = docs.filter((d) => d.id_penerimaan === x.id_penerimaan);
       const setuju = mine.filter((d) => WAJIB.includes(d.jenis_dokumen) && d.status_periksa === 'disetujui').length;
@@ -86,7 +86,7 @@ export default function routerDosen({ db, storage }) {
   // ---------- notifikasi (lonceng) ----------
   r.get('/notifikasi', async (req, res) => {
     const sejak = new Date(Date.now() - 30 * 86_400_000).toISOString();
-    const kirim = await q(db, `SELECT rd.waktu, d.jenis_dokumen, d.pernah_perbaikan, k.id_konversi AS id, u.nama FROM riwayat_dokumen rd JOIN dokumen_akhir d USING (id_dokumen)
+    const kirim = await q(db, `SELECT rd.waktu, d.jenis_dokumen, ${pernahPerbaikan('d')}, k.id_konversi AS id, u.nama FROM riwayat_dokumen rd JOIN dokumen_akhir d USING (id_dokumen)
       JOIN pengajuan_konversi k ON k.id_penerimaan = d.id_penerimaan JOIN penugasan_dosen pd ON pd.id_konversi = k.id_konversi
       JOIN penerimaan_magang n ON n.id_penerimaan = d.id_penerimaan JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan
       JOIN mahasiswa m ON m.id_mahasiswa = p.id_mahasiswa JOIN users u ON u.id_user = m.id_user
@@ -171,7 +171,7 @@ export default function routerDosen({ db, storage }) {
     res.json({
       id: b.id, jenis, label: LABEL[jenis], wajib: DOKUMEN_AKHIR.find((x) => x.jenis === jenis).wajib,
       mahasiswa: { nama: b.nama, npm: b.npm, email: b.email }, nama_perusahaan: b.nama_perusahaan, tgl_mulai: b.tgl_mulai, tgl_selesai: b.tgl_selesai,
-      status: statusDok(d), nama_berkas: d?.nama_asli ?? null, ada_berkas: !!d?.file_dokumen, ringkasan: d?.ringkasan ?? null, catatan_dosen: d?.catatan_dosen ?? null,
+      status: statusDok(d), nama_berkas: d?.nama_asli ?? null, ada_berkas: !!d?.file_dokumen, catatan_dosen: d?.catatan_dosen ?? null,
       batas_revisi: d?.batas_revisi ?? null, diunggah_pada: iso(d?.diunggah_pada) ?? null, diperiksa_pada: iso(d?.diperiksa_pada) ?? null, riwayat,
       ttd: jenis === 'laporan_akhir' ? { ada: !!d?.file_ttd, nama_berkas: d?.nama_ttd ?? null, pada: iso(d?.ditandatangani_pada) ?? null } : null,
       penandatangan: { nama: req.dosen.nama, nidn: req.dosen.nidn, jabatan: 'Dosen Pendamping', prodi: 'Sistem Informasi' },
@@ -197,9 +197,9 @@ export default function routerDosen({ db, storage }) {
     const d = dokumenDari(await cari(req), jenisSah(req.params.jenis));
     if (!d) throw new Galat(404, 'Dokumen belum diunggah mahasiswa.');
     await db.transaksi(async (c) => {
-      const hasil = await satu(c, `UPDATE dokumen_akhir SET status_periksa = $1, catatan_dosen = $2, batas_revisi = $3, pernah_perbaikan = pernah_perbaikan OR $4,
-          diperiksa_oleh = $5, diperiksa_pada = now() WHERE id_dokumen = $6 AND status_periksa = 'menunggu' RETURNING id_dokumen`,
-      [setuju ? 'disetujui' : 'perlu_perbaikan', setuju ? null : req.body.catatan.trim(), setuju ? null : batas, !setuju, req.dosen.id_dosen, d.id_dokumen]);
+      const hasil = await satu(c, `UPDATE dokumen_akhir SET status_periksa = $1, catatan_dosen = $2, batas_revisi = $3,
+          diperiksa_oleh = $4, diperiksa_pada = now() WHERE id_dokumen = $5 AND status_periksa = 'menunggu' RETURNING id_dokumen`,
+      [setuju ? 'disetujui' : 'perlu_perbaikan', setuju ? null : req.body.catatan.trim(), setuju ? null : batas, req.dosen.id_dosen, d.id_dokumen]);
       if (!hasil) throw new Galat(409, 'Dokumen ini sudah diperiksa. Tunggu mahasiswa mengunggah ulang.');
       await c.query('INSERT INTO riwayat_dokumen (id_dokumen, aksi, oleh, catatan) VALUES ($1, $2, $3, $4)', [d.id_dokumen, setuju ? 'disetujui' : 'perbaikan', req.user.id_user, setuju ? null : req.body.catatan.trim()]);
     });

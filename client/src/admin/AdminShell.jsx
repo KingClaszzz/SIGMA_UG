@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // KERANGKA PERAN ADMIN PRODI (FR-01): beberapa akun admin dengan hak setara. Akun dibuat tim pengembang (server/scripts/buat-akun.js).
 // Menu mengikuti desain Figma admin. Mata Kuliah tidak ada di menu desain: dibuka dari halaman Pemetaan Mata Kuliah (/admin/mata-kuliah).
 import { Navigate, Outlet } from 'react-router-dom';
@@ -19,7 +20,7 @@ const menu = [
 
 export default function AdminShell() {
   const akses = useAkses('admin');
-  if (akses.status === 'memuat') return <p className="sub" style={{ padding: 32 }}>Memuat…</p>;
+  if (akses.status === 'memuat') return <Muat penuh />;
   if (akses.status === 'galat') return <p className="sub" role="alert" style={{ padding: 32 }}>{akses.galat.message}</p>;
   if (akses.status === 'tolak') return <Navigate to={akses.ke} replace state={akses.state} />;
   return <Isi />;

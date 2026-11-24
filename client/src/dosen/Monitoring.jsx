@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: DOSEN PENDAMPING — monitoring dan pemeriksaan dokumen akhir per jenis (FR-14) serta pengesahan laporan akhir (FR-15).
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -40,7 +41,7 @@ export function DaftarMonitoring() {
         <div className="tab-garis" role="tablist">
           {TAB.map(([k, label]) => <button key={k} role="tab" aria-selected={jenis === k} className={jenis === k ? 'aktif' : ''} onClick={() => setJenis(k)}>{label}</button>)}
         </div>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? <p className="kosong">Tidak ada data yang cocok.</p> : (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? <p className="kosong">Tidak ada data yang cocok.</p> : (
           <div className="tabel-wrap">
             <table>
               <thead><tr><th>No</th><th>Nama Mahasiswa</th><th>NPM</th><th>Perusahaan</th><th>{jenis === 'logbook' ? 'Logbook' : 'Nama File'}</th><th>Tanggal Pengumpulan</th><th>Status</th><th><span className="sr">Aksi</span></th></tr></thead>
@@ -73,7 +74,7 @@ export function DetailDokumen() {
   const { sibuk, galat, jalan } = useAksi(muat);
 
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!d) return <p className="sub">Memuat…</p>;
+  if (!d) return <Muat />;
   const laporan = jenis === 'laporan_akhir';
   const periksa = (body, pesan) => jalan(async () => { await api(`/dosen/bimbingan/${id}/dokumen/${jenis}/periksa`, { method: 'POST', body }); setDialog(null); setCatatan(''); setBatas(''); }, pesan);
   const tutup = () => setDialog(null);
@@ -99,7 +100,6 @@ export function DetailDokumen() {
               <div><dt>Tanggal pengiriman</dt><dd>{d.diunggah_pada ? tanggalAngka(d.diunggah_pada) : '–'}</dd></div>
               <div><dt>Pemeriksaan terakhir</dt><dd>{d.diperiksa_pada ? tanggalAngka(d.diperiksa_pada) : '–'}</dd></div>
             </dl>
-            {d.ringkasan && <p className="isi" style={{ marginTop: 12, whiteSpace: 'pre-line' }}><strong>{jenis === 'logbook' ? 'Isi logbook:' : 'Ringkasan kegiatan:'}</strong> {d.ringkasan}</p>}
             {d.status === 'belum_diunggah' && <p className="kosong" style={{ marginTop: 12 }}>Mahasiswa belum mengumpulkan dokumen ini.</p>}
             {d.ada_berkas && <DaftarPratinjau berkas={[{ kunci: d.jenis, label: d.label, nama: d.nama_berkas, path: `/dosen/bimbingan/${id}/dokumen/${jenis}` }]} />}
           </section>
@@ -192,7 +192,7 @@ export function RiwayatMonitoring() {
         <p className="sub">Semua pengiriman dan pemeriksaan dokumen mahasiswa bimbingan Anda.</p>
       </header>
       <section className="kartu">
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? <p className="kosong">Belum ada riwayat.</p> : (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? <p className="kosong">Belum ada riwayat.</p> : (
           <div className="tabel-wrap">
             <table>
               <thead><tr><th>Waktu</th><th>Mahasiswa</th><th>Aktivitas</th><th>Oleh</th><th><span className="sr">Aksi</span></th></tr></thead>

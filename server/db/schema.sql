@@ -5,7 +5,7 @@
 --   pengajuan_rekomendasi: + kepada (UI-06), + dibuat_pada.
 --   dokumen_pengajuan: tabel baru untuk dokumen syarat pengajuan (UI-06 tahap 2); SDD belum punya.
 --   penerimaan_magang: + posisi, tgl_mulai, tgl_selesai, nama/ukuran berkas (UI-08).
---   dokumen_akhir    : status_periksa diperluas (menunggu | perlu_perbaikan | disetujui) + ringkasan (logbook tertulis).
+--   dokumen_akhir    : status_periksa diperluas (menunggu | perlu_perbaikan | disetujui).
 -- Semua tabel memakai RLS tanpa kebijakan: hanya server (koneksi langsung) yang boleh membaca/menulis.
 
 CREATE TABLE IF NOT EXISTS users (
@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS mahasiswa (
   id_user INTEGER NOT NULL UNIQUE REFERENCES users (id_user),
   npm VARCHAR(10) NOT NULL UNIQUE,
   ipk NUMERIC(3, 2) NOT NULL CHECK (ipk BETWEEN 0 AND 4),
-  jumlah_sks SMALLINT NOT NULL CHECK (jumlah_sks >= 0),
   semester SMALLINT NOT NULL CHECK (semester >= 1),
   no_telepon VARCHAR(15) NOT NULL,
   status_aktif BOOLEAN NOT NULL,
@@ -126,8 +125,6 @@ CREATE TABLE IF NOT EXISTS penerimaan_magang (
   tgl_mulai DATE NOT NULL,
   tgl_selesai DATE NOT NULL,
   file_surat_penerimaan VARCHAR(255),
-  nama_surat_penerimaan VARCHAR(120),
-  ukuran_surat_penerimaan INTEGER,
   pilih_konversi BOOLEAN NOT NULL DEFAULT FALSE,
   status VARCHAR(30) NOT NULL CHECK (status IN ('draft', 'diterima_perusahaan', 'selesai'))
 );
@@ -145,8 +142,6 @@ CREATE TABLE IF NOT EXISTS pengajuan_konversi (
   id_konversi SERIAL PRIMARY KEY,
   id_penerimaan INTEGER NOT NULL UNIQUE REFERENCES penerimaan_magang (id_penerimaan),
   file_silabus VARCHAR(255),
-  nama_silabus VARCHAR(120),
-  ukuran_silabus INTEGER,
   status VARCHAR(20) NOT NULL CHECK (status IN ('draft', 'diajukan', 'ditinjau', 'ditolak', 'diproses', 'diterbitkan', 'selesai')),
   alasan_penolakan TEXT,
   diperiksa_oleh INTEGER REFERENCES admin (id_admin),
@@ -184,7 +179,6 @@ CREATE TABLE IF NOT EXISTS dokumen_akhir (
   jenis_dokumen VARCHAR(20) NOT NULL CHECK (jenis_dokumen IN ('laporan_akhir', 'sertifikat', 'nilai_mitra', 'logbook')),
   file_dokumen VARCHAR(255),
   nama_asli VARCHAR(120),
-  ukuran INTEGER,
   ringkasan TEXT,
   status_periksa VARCHAR(20) NOT NULL DEFAULT 'menunggu' CHECK (status_periksa IN ('menunggu', 'perlu_perbaikan', 'disetujui')),
   catatan_dosen TEXT,
@@ -248,7 +242,6 @@ ALTER TABLE mahasiswa ADD COLUMN IF NOT EXISTS alamat VARCHAR(200); -- tercetak 
 
 -- Desain dosen: pemeriksaan ulang, batas revisi, tanda tangan laporan, riwayat dokumen, notifikasi dosen.
 ALTER TABLE dosen ADD COLUMN IF NOT EXISTS notif_dibaca_pada TIMESTAMPTZ NOT NULL DEFAULT now();
-ALTER TABLE dokumen_akhir ADD COLUMN IF NOT EXISTS pernah_perbaikan BOOLEAN NOT NULL DEFAULT FALSE; -- true = "Menunggu Pemeriksaan Ulang"
 ALTER TABLE dokumen_akhir ADD COLUMN IF NOT EXISTS batas_revisi DATE;
 ALTER TABLE dokumen_akhir ADD COLUMN IF NOT EXISTS file_ttd VARCHAR(255); -- laporan bertanda tangan (digital atau unggahan dosen)
 ALTER TABLE dokumen_akhir ADD COLUMN IF NOT EXISTS nama_ttd VARCHAR(120);
@@ -265,18 +258,14 @@ ALTER TABLE riwayat_dokumen ENABLE ROW LEVEL SECURITY;
 
 -- Desain mahasiswa: logbook harian di sistem dan lonceng notifikasi mahasiswa.
 ALTER TABLE mahasiswa ADD COLUMN IF NOT EXISTS notif_dibaca_pada TIMESTAMPTZ NOT NULL DEFAULT now();
-CREATE TABLE IF NOT EXISTS logbook_entri (
-  id_entri SERIAL PRIMARY KEY,
-  id_penerimaan INTEGER NOT NULL REFERENCES penerimaan_magang (id_penerimaan) ON DELETE CASCADE,
-  tanggal DATE NOT NULL,
-  jam_mulai TIME NOT NULL,
-  jam_selesai TIME NOT NULL,
-  aktivitas VARCHAR(1000) NOT NULL,
-  hasil VARCHAR(1000) NOT NULL,
-  kendala VARCHAR(500),
-  dibuat_pada TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-ALTER TABLE logbook_entri ENABLE ROW LEVEL SECURITY;
+-- Logbook kini hanya berkas PDF opsional di dokumen_akhir; entri harian dan ringkasan teks dihapus (migrasi untuk DB lama).
+DROP TABLE IF EXISTS logbook_entri;
+ALTER TABLE dokumen_akhir ADD COLUMN IF NOT EXISTS ringkasan TEXT;
+-- Sinkron dengan SDD v2: kolom yang tidak ada di SDD dihapus. "Menunggu pemeriksaan ulang" dibaca dari riwayat_dokumen (aksi perbaikan).
+ALTER TABLE mahasiswa DROP COLUMN IF EXISTS jumlah_sks;
+ALTER TABLE dokumen_akhir DROP COLUMN IF EXISTS pernah_perbaikan, DROP COLUMN IF EXISTS ukuran, ALTER COLUMN file_dokumen DROP NOT NULL, ALTER COLUMN nama_asli DROP NOT NULL;
+ALTER TABLE penerimaan_magang DROP COLUMN IF EXISTS nama_surat_penerimaan, DROP COLUMN IF EXISTS ukuran_surat_penerimaan;
+ALTER TABLE pengajuan_konversi DROP COLUMN IF EXISTS nama_silabus, DROP COLUMN IF EXISTS ukuran_silabus;
 
 -- Hanya server yang mengakses tabel; API publik Supabase (anon/authenticated) ditolak karena tidak ada kebijakan.
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;

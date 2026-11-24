@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI — daftar mata kuliah yang bisa dipilih sebagai hasil konversi (FR-07; SDD tabel 12).
 import { useState } from 'react';
 import { api, useAksi, useApi } from '../api';
@@ -28,7 +29,7 @@ export default function MataKuliah() {
 
       <section className="kartu">
         <h2>Daftar mata kuliah</h2>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? (
           <p className="kosong">Belum ada mata kuliah.</p>
         ) : (
           <div className="tabel-wrap">

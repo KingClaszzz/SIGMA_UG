@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: MAHASISWA (FR-02, FR-05, FR-10; UI-06, UI-07). Antrean validasi dan penerbitan surat milik Admin Prodi
 // (FR-03, FR-04) dibangun di src/admin/; admin mengubah pengajuan.status dan mengisi pengajuan.surat.
 import TautanBerkas from '../components/Berkas.jsx';
@@ -208,7 +209,7 @@ export function RiwayatRekomendasi() {
       <Kepala judul="Status Pengajuan Surat Rekomendasi" sub="Pantau proses pengajuan kamu secara langsung." />
       <section className="kartu masuk">
         <h2>Pengajuan Surat Rekomendasi</h2>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.pengajuan.length === 0 ? (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.pengajuan.length === 0 ? (
           <p className="kosong">Belum ada pengajuan. <Link to="/surat-rekomendasi">Ajukan surat rekomendasi</Link></p>
         ) : (
           <div className="tabel-wrap">
@@ -246,7 +247,7 @@ export function DetailRekomendasi() {
   const { id } = useParams();
   const { data: p, error } = useApi(`/mahasiswa/rekomendasi/${id}`);
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!p) return <p className="sub">Memuat…</p>;
+  if (!p) return <Muat />;
   const terkirim = p.dokumen_syarat.filter((x) => x.berkas);
 
   return (

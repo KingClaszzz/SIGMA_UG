@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: DOSEN PENDAMPING — dashboard, daftar mahasiswa bimbingan, dan detail mahasiswa (FR-14, US-19).
 // Pemeriksaan dokumen ada di dosen/Monitoring.jsx.
 import { useState } from 'react';
@@ -23,7 +24,7 @@ export function DashboardDosen() {
   const { data: d, error } = useApi('/dosen/dashboard');
   const { data: profil } = useApi('/dosen/profil');
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!d) return <p className="sub">Memuat…</p>;
+  if (!d) return <Muat />;
   const r = d.ringkasan;
   const kartu = [['Total Mahasiswa Bimbingan', r.bimbingan], ['Logbook Menunggu Pemeriksaan', r.logbook_menunggu], ['Laporan Akhir Menunggu Pemeriksaan', r.laporan_menunggu], ['Dokumen Perlu Perbaikan', r.perlu_perbaikan]];
   const j = d.jadwal;
@@ -101,7 +102,7 @@ export function DaftarBimbingan() {
             <select value={magang} onChange={(e) => setMagang(e.target.value)}><option value="semua">Semua</option><option value="berjalan">Berjalan</option><option value="selesai">Selesai</option></select>
           </label>
         </div>
-        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <p className="kosong">Memuat…</p> : data.length === 0 ? <p className="kosong">Belum ada mahasiswa bimbingan yang cocok.</p> : (
+        {error ? <p className="pesan galat" role="alert">{error.message}</p> : !data ? <Muat /> : data.length === 0 ? <p className="kosong">Belum ada mahasiswa bimbingan yang cocok.</p> : (
           <div className="tabel-wrap">
             <table>
               <thead><tr><th>No</th><th>Nama Mahasiswa</th><th>NPM</th><th>Program Studi</th><th>Perusahaan</th><th>Periode Magang</th><th>Progres Dokumen</th><th>Status</th><th><span className="sr">Aksi</span></th></tr></thead>
@@ -128,7 +129,7 @@ export function DetailBimbingan() {
   const { id } = useParams();
   const { data: b, error } = useApi(`/dosen/bimbingan/${id}`);
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!b) return <p className="sub">Memuat…</p>;
+  if (!b) return <Muat />;
   const k = b.konversi;
   const disetujui = ['diterbitkan', 'selesai'].includes(k.status);
   return (

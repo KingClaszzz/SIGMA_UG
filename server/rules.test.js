@@ -14,7 +14,7 @@ test('jendela konversi dimulai sehari setelah pengajuan surat ditutup', () => {
 });
 
 test('validasi profil menolak IPK di luar 0–4 dan telepon salah', () => {
-  const ok = { ipk: '3.5', jumlah_sks: '100', semester: '7', no_telepon: '081234567890', alamat: 'Jl. Margonda Raya No. 100, Depok' };
+  const ok = { ipk: '3.5', semester: '7', no_telepon: '081234567890', alamat: 'Jl. Margonda Raya No. 100, Depok' };
   assert.equal(validasiProfil(ok), null);
   assert.match(validasiProfil({ ...ok, ipk: '4.5' }), /IPK/);
   assert.match(validasiProfil({ ...ok, no_telepon: '12345' }), /telepon/);

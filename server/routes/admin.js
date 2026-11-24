@@ -110,7 +110,7 @@ export default function routerAdmin({ db, storage, akun }) {
 
   // ---------- data mahasiswa dan verifikasi data diri (FR-16) ----------
   const barisMahasiswa = (m) => ({
-    id: m.id_mahasiswa, id_user: m.id_user, nama: m.nama, email: m.email, npm: m.npm, ipk: m.ipk, jumlah_sks: m.jumlah_sks, semester: m.semester, no_telepon: m.no_telepon,
+    id: m.id_mahasiswa, id_user: m.id_user, nama: m.nama, email: m.email, npm: m.npm, ipk: m.ipk, semester: m.semester, no_telepon: m.no_telepon,
     status_aktif: m.status_aktif, status_cuti: m.status_cuti, ada_nilai_e: m.ada_nilai_e, is_aktif: m.is_aktif,
     status_verifikasi: m.status_verifikasi, catatan_verifikasi: m.catatan_verifikasi, magang: m.magang,
   });
@@ -141,6 +141,24 @@ export default function routerAdmin({ db, storage, akun }) {
   });
 
   // ---------- surat rekomendasi (FR-03, FR-04, FR-05) ----------
+  // Lepas NPM: dipakai bila NPM didaftarkan akun yang salah. Data diri dihapus dan akun dinonaktifkan agar pemilik NPM bisa mendaftar ulang.
+  // Ditolak (FK 23503) bila akun sudah punya pengajuan atau riwayat magang.
+  r.post('/mahasiswa/:id/lepas-npm', async (req, res) => {
+    const id = Number(req.params.id);
+    const m = await satu(db, 'SELECT id_user FROM mahasiswa WHERE id_mahasiswa = $1', [id]);
+    if (!m) throw new Galat(404, 'Mahasiswa tidak ditemukan.');
+    try {
+      await db.transaksi(async (c) => {
+        await c.query('DELETE FROM mahasiswa WHERE id_mahasiswa = $1', [id]);
+        await c.query('UPDATE users SET is_aktif = FALSE WHERE id_user = $1', [m.id_user]);
+      });
+    } catch (e) {
+      if (e.code === '23503') throw new Galat(409, 'Akun ini sudah punya pengajuan atau riwayat magang, sehingga NPM tidak bisa dilepas. Nonaktifkan akunnya saja.');
+      throw e;
+    }
+    res.json({ ok: true });
+  });
+
   const REK_SQL = `SELECT p.*, k.nama_kategori, k.is_diizinkan, m.npm, m.ipk, m.semester, m.alamat, m.no_telepon, m.status_aktif, m.status_cuti, m.ada_nilai_e, m.status_verifikasi, m.catatan_verifikasi,
       u.nama AS nama_mhs, u.email AS email_mhs, pr.tahun_akademik,
       (SELECT count(*)::int FROM riwayat_magang r WHERE r.id_mahasiswa = m.id_mahasiswa) AS magang
@@ -318,7 +336,7 @@ export default function routerAdmin({ db, storage, akun }) {
   });
 
   // ---------- konversi SKS (FR-06, FR-07, FR-08) ----------
-  const KNV_SQL = `SELECT k.*, n.id_penerimaan, n.id_pengajuan, n.posisi, n.tgl_mulai, n.tgl_selesai, n.nama_surat_penerimaan, n.ukuran_surat_penerimaan,
+  const KNV_SQL = `SELECT k.*, n.id_penerimaan, n.id_pengajuan, n.posisi, n.tgl_mulai, n.tgl_selesai, n.file_surat_penerimaan,
       p.nama_perusahaan, p.alamat_perusahaan, pr.tahun_akademik, m.id_mahasiswa, m.npm, m.semester, m.no_telepon, m.status_verifikasi, u.nama AS nama_mhs, u.email AS email_mhs,
       (SELECT count(*)::int FROM riwayat_magang r WHERE r.id_mahasiswa = m.id_mahasiswa) AS magang,
       (SELECT count(*)::int FROM pengajuan_konversi k2 JOIN penerimaan_magang n2 ON n2.id_penerimaan = k2.id_penerimaan JOIN pengajuan_rekomendasi p2 ON p2.id_pengajuan = n2.id_pengajuan
@@ -346,7 +364,7 @@ export default function routerAdmin({ db, storage, akun }) {
         disetujui_pada: s ? iso(s.diterbitkan_pada) : null,
         mahasiswa: { id: k.id_mahasiswa, nama: k.nama_mhs, email: k.email_mhs, npm: k.npm, semester: k.semester, no_telepon: k.no_telepon, magang: k.magang, status_verifikasi: k.status_verifikasi },
         kuota: { disetujui: k.disetujui, batas: BATAS_MAGANG },
-        surat_penerimaan: berkas(k.nama_surat_penerimaan, k.ukuran_surat_penerimaan), silabus: berkas(k.nama_silabus, k.ukuran_silabus),
+        surat_penerimaan: k.file_surat_penerimaan ? { nama: 'Surat penerimaan.pdf' } : null, silabus: k.file_silabus ? { nama: 'Silabus.pdf' } : null,
         matkul: detail.filter((x) => x.id_konversi === k.id_konversi).map(({ id_matkul, kode_mk, nama_mk, sks, sks_diakui, keterangan }) => ({ id_matkul, kode_mk, nama_mk, sks, sks_diakui, keterangan: keterangan ?? KETERANGAN_AWAL })),
         dosen: d ? { id: d.id_dosen, nama: d.nama, nidn: d.nidn, ditugaskan_pada: iso(d.ditetapkan_pada), oleh: d.oleh } : null,
         surat: s ? { nomor_surat: s.nomor_surat, diterbitkan_pada: iso(s.diterbitkan_pada) } : null,
@@ -387,14 +405,14 @@ export default function routerAdmin({ db, storage, akun }) {
   });
 
   const berkasKonversi = {
-    'surat-penerimaan': 'SELECT n.file_surat_penerimaan AS file, n.nama_surat_penerimaan AS nama FROM pengajuan_konversi k JOIN penerimaan_magang n USING (id_penerimaan) WHERE k.id_konversi = $1',
-    silabus: 'SELECT file_silabus AS file, nama_silabus AS nama FROM pengajuan_konversi WHERE id_konversi = $1',
+    'surat-penerimaan': 'SELECT n.file_surat_penerimaan AS file FROM pengajuan_konversi k JOIN penerimaan_magang n USING (id_penerimaan) WHERE k.id_konversi = $1',
+    silabus: 'SELECT file_silabus AS file FROM pengajuan_konversi WHERE id_konversi = $1',
   };
   for (const [rute, sql] of Object.entries(berkasKonversi)) {
     r.get(`/konversi/:id/${rute}`, async (req, res) => {
       const d = await satu(db, sql, [Number(req.params.id)]);
       if (!d?.file) throw new Galat(404, 'Berkas tidak ditemukan.');
-      kirimPdf(res, await storage.baca(d.file), d.nama);
+      kirimPdf(res, await storage.baca(d.file), `${rute}.pdf`);
     });
   }
   r.get('/konversi/:id/surat', async (req, res) => {
@@ -538,7 +556,7 @@ export default function routerAdmin({ db, storage, akun }) {
         pada: iso(h.waktu), oleh: h.peran === 'mahasiswa' ? 'Mahasiswa' : h.nama,
       }));
       return {
-        ...x, status: d ? d.status_periksa : 'belum_diunggah', berkas: berkas(d?.nama_asli, d?.ukuran), ringkasan: d?.ringkasan ?? null, catatan_dosen: d?.catatan_dosen ?? null,
+        ...x, status: d ? d.status_periksa : 'belum_diunggah', berkas: berkas(d?.nama_asli), catatan_dosen: d?.catatan_dosen ?? null,
         diunggah_pada: iso(d?.diunggah_pada) ?? null, diperiksa_pada: iso(d?.diperiksa_pada) ?? null, pemeriksa: d?.pemeriksa ?? null, ttd_digital: d?.ttd_digital ?? false, riwayat,
       };
     });

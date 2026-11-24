@@ -32,8 +32,8 @@ async function akun(token, email, peran) {
 }
 async function mahasiswa(token, email, npm, { ipk = 3.5, verifikasi = 'terverifikasi', semester = 7, e = false } = {}) {
   const id_user = await akun(token, email, 'mahasiswa');
-  const { rows: [m] } = await db.query(`INSERT INTO mahasiswa (id_user, npm, ipk, jumlah_sks, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, status_verifikasi)
-    VALUES ($1, $2, $3, 100, $4, '081200000000', true, false, $5, $6) RETURNING id_mahasiswa`, [id_user, npm, ipk, semester, e, verifikasi]);
+  const { rows: [m] } = await db.query(`INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, status_verifikasi)
+    VALUES ($1, $2, $3, $4, '081200000000', true, false, $5, $6) RETURNING id_mahasiswa`, [id_user, npm, ipk, semester, e, verifikasi]);
   return m.id_mahasiswa;
 }
 async function pengajuan(idMhs, status = 'diajukan', kategori = 2) {
@@ -48,8 +48,8 @@ await db.query("INSERT INTO admin (id_user, nip, jabatan, no_telepon) VALUES ($1
 await akun('t-admin-kosong', 'admin2@uji.test', 'admin'); // peran admin tapi profil belum dibuat
 const idDosenUser = await akun('t-dosen', 'dosen@uji.test', 'dosen');
 const { rows: [dosen] } = await db.query("INSERT INTO dosen (id_user, nidn, no_telepon) VALUES ($1, '0312088501', '081200000002') RETURNING id_dosen", [idDosenUser]);
-const A = await mahasiswa('t-a', 'a@uji.test', '11120001');
-const B = await mahasiswa('t-b', 'b@uji.test', '11120002', { ipk: 2.9 });
+const A = await mahasiswa('t-a', 'a@uji.test', '19990001');
+const B = await mahasiswa('t-b', 'b@uji.test', '19990002', { ipk: 2.9 });
 const C = await mahasiswa('t-c', 'c@uji.test', '11120003', { verifikasi: 'menunggu' });
 
 test('hanya admin yang punya profil boleh masuk rute admin', async () => {
@@ -114,13 +114,13 @@ test('setujui satu pengajuan bersyarat, minta perbaikan mengembalikan ke mahasis
 test('persetujuan menerbitkan surat PDF bernomor yang bisa diunduh mahasiswa', async () => {
   const terbit = (await ADM('GET', '/rekomendasi?status=diterbitkan')).data;
   assert.ok(terbit.length >= 2);
-  const milikA = terbit.find((x) => x.mahasiswa.npm === '11120001');
+  const milikA = terbit.find((x) => x.mahasiswa.npm === '19990001');
   const detail = (await ADM('GET', `/rekomendasi/${milikA.id}`)).data;
   assert.match(detail.surat.nomor_surat, /^00\d\/REK\//);
   assert.deepEqual(detail.riwayat_detail.map((x) => x.judul), ['Pengajuan dikirim mahasiswa', 'Disetujui dan surat diterbitkan']);
   assert.equal(detail.admin_pemeriksa, 'admin');
   assert.equal((await ADM('POST', `/rekomendasi/${milikA.id}/setujui`)).status, 409); // tidak terbit dua kali
-  assert.equal((await ADM('GET', '/rekomendasi?q=11120002')).data.every((x) => x.mahasiswa.npm === '11120002'), true);
+  assert.equal((await ADM('GET', '/rekomendasi?q=11120002')).data.every((x) => x.mahasiswa.npm === '19990002'), true);
 
   const unduh = await req('t-a', 'GET', `/mahasiswa/rekomendasi/${milikA.id}/surat`);
   assert.equal(unduh.tipe, 'application/pdf');
@@ -130,9 +130,9 @@ test('persetujuan menerbitkan surat PDF bernomor yang bisa diunduh mahasiswa', a
 });
 
 test('konversi: periksa berkas → pemetaan → setujui (surat terbit) → dosen terpisah', async () => {
-  const idP = (await ADM('GET', '/rekomendasi?status=diterbitkan')).data.find((x) => x.mahasiswa.npm === '11120001').id;
-  const { rows: [pen] } = await db.query("INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, file_surat_penerimaan, nama_surat_penerimaan, ukuran_surat_penerimaan, pilih_konversi, status) VALUES ($1, 'Dev', '2027-01-04', '2027-04-02', 'x.pdf', 'sp.pdf', 10, true, 'diterima_perusahaan') RETURNING id_penerimaan", [idP]);
-  const { rows: [k] } = await db.query("INSERT INTO pengajuan_konversi (id_penerimaan, file_silabus, nama_silabus, ukuran_silabus, status) VALUES ($1, 's.pdf', 'sil.pdf', 10, 'diajukan') RETURNING id_konversi", [pen.id_penerimaan]);
+  const idP = (await ADM('GET', '/rekomendasi?status=diterbitkan')).data.find((x) => x.mahasiswa.npm === '19990001').id;
+  const { rows: [pen] } = await db.query("INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, file_surat_penerimaan, pilih_konversi, status) VALUES ($1, 'Dev', '2027-01-04', '2027-04-02', 'x.pdf', true, 'diterima_perusahaan') RETURNING id_penerimaan", [idP]);
+  const { rows: [k] } = await db.query("INSERT INTO pengajuan_konversi (id_penerimaan, file_silabus, status) VALUES ($1, 's.pdf', 'diajukan') RETURNING id_konversi", [pen.id_penerimaan]);
   await db.query("INSERT INTO riwayat_status (jenis_objek, id_objek, status_baru) VALUES ('pengajuan_konversi', $1, 'diajukan')", [k.id_konversi]);
   const id = k.id_konversi;
 
@@ -241,4 +241,18 @@ test('manajemen akun dosen', async () => {
   assert.equal((await ADM('GET', '/akun/dosen?status=nonaktif')).data.length, 1);
   assert.equal((await ADM('PUT', `/akun/${idAdminUser}/aktif`, { aktif: false })).status, 409); // bukan akun sendiri
   assert.equal((await ADM('GET', '/dosen')).data.some((d) => d.nidn === baru.nidn), false); // nonaktif tidak bisa dipilih
+});
+
+test('NPM: cek ketersediaan untuk pendaftaran, lepas NPM hanya bila akun belum punya pengajuan', async () => {
+  const pengisiIseng = await mahasiswa('t-iseng', 'iseng@uji.test', '19990101', { verifikasi: 'menunggu' });
+  const sudahAjukan = await mahasiswa('t-ada', 'ada2@uji.test', '19990102');
+  await pengajuan(sudahAjukan);
+  assert.equal((await req(null, 'GET', '/publik/npm/19990101')).data.tersedia, false);
+  assert.equal((await req(null, 'GET', '/publik/npm/11120009')).data.tersedia, true);
+  assert.equal((await req(null, 'GET', '/publik/npm/1234')).status, 400);
+  assert.equal((await ADM('POST', `/mahasiswa/${sudahAjukan}/lepas-npm`)).status, 409);
+  assert.equal((await ADM('POST', `/mahasiswa/${pengisiIseng}/lepas-npm`)).status, 200);
+  assert.equal((await req(null, 'GET', '/publik/npm/19990101')).data.tersedia, true);
+  const { rows: [u] } = await db.query("SELECT is_aktif FROM users WHERE email = 'iseng@uji.test'");
+  assert.equal(u.is_aktif, false);
 });

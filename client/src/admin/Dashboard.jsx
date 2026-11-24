@@ -1,3 +1,4 @@
+import Muat from '../components/Muat.jsx';
 // PERAN: ADMIN PRODI (UI-11). Banner, enam ringkasan, pengajuan terbaru, dan jadwal/tenggat periode berjalan.
 import { Link } from 'react-router-dom';
 import { icon } from '../assets';
@@ -20,7 +21,7 @@ function Kartu({ to, ikon, angka, label }) {
 export default function Dashboard() {
   const { data: d, error } = useApi('/admin/dashboard');
   if (error) return <p className="sub" role="alert">{error.message}</p>;
-  if (!d) return <p className="sub">Memuat…</p>;
+  if (!d) return <Muat />;
   const { ringkasan: r, periode } = d;
   const tenggat = periode && [
     ['Pengajuan surat rekomendasi', periode.tgl_tutup, 'kuning'],

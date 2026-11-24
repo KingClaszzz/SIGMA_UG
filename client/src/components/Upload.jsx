@@ -34,7 +34,7 @@ export default function Upload({ berkas, tautan, onPilih, onHapus, terkunci = fa
         <div className="berkas">
           <span className="berkas-ikon" aria-hidden="true">▤</span>
           <div className="berkas-isi">
-            <p className="berkas-nama">{berkas.nama} <small>{ukuranBerkas(berkas.ukuran)}</small></p>
+            <p className="berkas-nama">{berkas.nama} {berkas.ukuran != null && <small>{ukuranBerkas(berkas.ukuran)}</small>}</p>
             <span className="bar"><span /></span>
           </div>
           <span className="badge hijau">Terunggah</span>
