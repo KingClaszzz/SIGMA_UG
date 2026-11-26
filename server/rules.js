@@ -77,14 +77,9 @@ export function validasiProfil(p) {
   const ipk = Number(p.ipk);
   if (p.ipk === '' || p.ipk == null || !(ipk >= 0 && ipk <= 4)) return 'IPK harus berada pada rentang 0 sampai 4.';
   if (![5, 6, 7].includes(Number(p.semester))) return 'Semester harus 5, 6, atau 7.';
-<<<<<<< HEAD
-  if (!/^08\d{8,11}$/.test(p.no_telepon ?? '')) return 'Nomor telepon harus 10–13 digit dan diawali 08.';
-  if (!REGEX_ALAMAT.test(rapikanAlamat(p.alamat))) return 'Alamat tidak valid: 10–200 karakter, memuat huruf, dan hanya berisi huruf, angka, spasi, serta . , / - # ( ) : &.';
-=======
   const tel = validasiTelepon(p.no_telepon);
   if (tel) return tel;
-  if (!teks(p.alamat, 200) || p.alamat.trim().length < 10) return 'Alamat wajib diisi (10–200 karakter).';
->>>>>>> 83f9885f73b0f66df0b1e9fa1a56ecb4f63a8278
+  if (!REGEX_ALAMAT.test(rapikanAlamat(p.alamat))) return 'Alamat tidak valid: 10–200 karakter, memuat huruf, dan hanya berisi huruf, angka, spasi, serta . , / - # ( ) : &.';
   return null;
 }
 

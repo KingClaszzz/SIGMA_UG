@@ -156,7 +156,6 @@ test('logbook: unggah PDF opsional; notifikasi mahasiswa', async () => {
   assert.equal((await A('GET', '/notifikasi')).data.belum_dibaca, 0);
 });
 
-<<<<<<< HEAD
 test('satu akun satu perangkat: perangkat kedua ditolak sampai yang pertama keluar atau diam', async () => {
   const C = (t) => req(t, 'GET', '/saya');
   assert.equal((await C('token-c1')).status, 200);
@@ -168,7 +167,8 @@ test('satu akun satu perangkat: perangkat kedua ditolak sampai yang pertama kelu
   await db.query("UPDATE users SET last_login = now() - interval '10 minutes' WHERE email = 'c@uji.test'");
   assert.equal((await C('token-c1')).status, 200); // pemegang sudah diam: diambil alih
   assert.equal((await C('token-c2')).data.kode, 'SESI_LAIN');
-=======
+});
+
 test('magang mandiri tanpa konversi: lapor penerimaan, tercatat di riwayat, tidak duplikat dengan konversi', async () => {
   await periode(30); // jendela konversi belum dibuka, tapi lapor magang mandiri tetap dibolehkan setelah surat rekomendasi terbit
   const { data: p } = await A('POST', '/rekomendasi', { body: { ...form, nama_perusahaan: 'PT Mandiri Uji' } });
@@ -198,5 +198,4 @@ test('magang mandiri tanpa konversi: lapor penerimaan, tercatat di riwayat, tida
   assert.equal((await A('GET', '/me')).data.riwayat_magang.some((r) => r.nama_perusahaan === 'PT Mandiri Uji' && r.sumber === 'sistem'), true);
   const pdf = await fetch(`http://localhost:${server.address().port}/api/mahasiswa/penerimaan/${n.id}/surat-penerimaan`, { headers: { Authorization: 'Bearer token-a' } });
   assert.equal(pdf.headers.get('content-type'), 'application/pdf');
->>>>>>> 83f9885f73b0f66df0b1e9fa1a56ecb4f63a8278
 });

@@ -100,20 +100,14 @@ export function buatApp({ db, storage, verifikasi, akun, kirimEmail = null, bata
   const tulis = pembatas({ ...b.tulis, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET', pesan: 'Terlalu banyak tindakan dalam waktu singkat. Tunggu beberapa menit lalu coba lagi.' });
   const tulisAdmin = pembatas({ ...b.tulis, maks: b.tulis.maks * 5, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET' });
   app.get('/api/saya', masuk, (req, res) => res.json({ peran: req.user.peran, nama: req.user.nama, email: req.user.email }));
-<<<<<<< HEAD
   // Keluar: lepaskan akun supaya bisa dipakai di perangkat lain tanpa menunggu.
   app.post('/api/keluar', masuk, async (req, res) => {
     await db.query('UPDATE users SET sesi_id = NULL WHERE id_user = $1', [req.user.id_user]);
     res.json({ ok: true });
   });
-  app.use('/api/mahasiswa', masuk, wajibPeran('mahasiswa'), tulis, routerMahasiswa({ db, storage }));
-  app.use('/api/admin', masuk, wajibPeran('admin'), tulisAdmin, routerAdmin({ db, storage, akun }));
-  app.use('/api/dosen', masuk, wajibPeran('dosen'), tulisAdmin, routerDosen({ db, storage }));
-=======
   app.use('/api/mahasiswa', masuk, wajibPeran('mahasiswa'), tulis, routerMahasiswa({ db, storage, email }));
   app.use('/api/admin', masuk, wajibPeran('admin'), tulisAdmin, routerAdmin({ db, storage, akun, email }));
   app.use('/api/dosen', masuk, wajibPeran('dosen'), tulisAdmin, routerDosen({ db, storage, email }));
->>>>>>> 83f9885f73b0f66df0b1e9fa1a56ecb4f63a8278
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Alamat tidak ditemukan.' }));
 

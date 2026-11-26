@@ -5,13 +5,9 @@ export function verifikatorSupabase(supabase) {
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data?.user?.email) return null;
     const u = data.user;
-<<<<<<< HEAD
+    const nama = (u.user_metadata?.nama ?? u.user_metadata?.full_name ?? u.user_metadata?.name ?? u.email.split('@')[0]).trim() || u.email.split('@')[0];
     // session_id ada di payload JWT; token sudah diverifikasi getUser di atas.
     const sesi = (() => { try { return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString()).session_id ?? null; } catch { return null; } })();
-    return { ...(sesi && { sesi }), auth_id: u.id, email: u.email, nama: u.user_metadata?.nama ?? u.user_metadata?.full_name ?? u.email.split('@')[0] };
-=======
-    const nama = (u.user_metadata?.nama ?? u.user_metadata?.full_name ?? u.user_metadata?.name ?? u.email.split('@')[0]).trim() || u.email.split('@')[0];
-    return { auth_id: u.id, email: u.email.trim().toLowerCase(), nama };
->>>>>>> 83f9885f73b0f66df0b1e9fa1a56ecb4f63a8278
+    return { ...(sesi && { sesi }), auth_id: u.id, email: u.email.trim().toLowerCase(), nama };
   };
 }
