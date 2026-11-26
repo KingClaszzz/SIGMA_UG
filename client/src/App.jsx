@@ -19,6 +19,9 @@ import { DaftarMonitoring, DetailMonitoring } from './admin/Monitoring.jsx';
 import Akun from './admin/Akun.jsx';
 import MataKuliah from './admin/MataKuliah.jsx';
 import NotifikasiEmail from './admin/NotifikasiEmail.jsx';
+import ProfilAdmin from './admin/Profil.jsx';
+import KategoriPerusahaan from './admin/KategoriPerusahaan.jsx';
+import TemplateSurat from './admin/TemplateSurat.jsx';
 import DosenShell from './dosen/DosenShell.jsx';
 import { DashboardDosen, DaftarBimbingan, DetailBimbingan } from './dosen/Bimbingan.jsx';
 import { DaftarMonitoring as MonitoringDosen, DetailDokumen, RiwayatMonitoring } from './dosen/Monitoring.jsx';
@@ -69,6 +72,9 @@ export default function App() {
         <Route path="/admin/periode/:id/ubah" element={<FormPeriode />} />
         <Route path="/admin/mata-kuliah" element={<MataKuliah />} />
         <Route path="/admin/notifikasi-email" element={<NotifikasiEmail />} />
+        <Route path="/admin/profil" element={<ProfilAdmin />} />
+        <Route path="/admin/kategori-perusahaan" element={<KategoriPerusahaan />} />
+        <Route path="/admin/template-surat" element={<TemplateSurat />} />
       </Route>
       <Route element={<DosenShell />}>
         <Route path="/dosen" element={<DashboardDosen />} />

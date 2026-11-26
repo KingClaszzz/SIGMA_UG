@@ -293,3 +293,68 @@ test('detail mahasiswa admin menampilkan jenis dan surat penerimaan riwayat maga
   assert.equal((await ADM('GET', `/mahasiswa/${A}/penerimaan/${pen.id_penerimaan}/surat`)).tipe, 'application/pdf');
   assert.equal((await ADM('GET', `/mahasiswa/${B}/penerimaan/${pen.id_penerimaan}/surat`)).status, 404);
 });
+
+test('profil admin: lihat profil dan ubah nomor telepon', async () => {
+  const p = (await ADM('GET', '/profil')).data;
+  assert.deepEqual([p.nip, p.jabatan, p.no_telepon], ['198001', 'CP Magang', '081200000001']);
+  assert.equal((await ADM('PUT', '/profil', { no_telepon: '1234' })).status, 400);
+  assert.equal((await ADM('PUT', '/profil', { no_telepon: '081311112222' })).status, 200);
+  assert.equal((await ADM('GET', '/profil')).data.no_telepon, '081311112222');
+});
+
+test('kategori perusahaan: tambah, ubah status izin, dan jaga yang masih dipakai', async () => {
+  const awal = (await ADM('GET', '/kategori-perusahaan')).data;
+  assert.ok(awal.length >= 5);
+  assert.equal((await ADM('POST', '/kategori-perusahaan', { nama_kategori: 'BUMN', is_diizinkan: true })).status, 409);
+  const baru = (await ADM('POST', '/kategori-perusahaan', { nama_kategori: 'Startup Uji', is_diizinkan: false })).data;
+  assert.equal((await req(null, 'GET', '/publik/periode')).data.kategori_diizinkan.includes('Startup Uji'), false);
+  assert.equal((await ADM('PUT', `/kategori-perusahaan/${baru.id}`, { nama_kategori: 'Startup Uji', is_diizinkan: true })).status, 200);
+  assert.equal((await req(null, 'GET', '/publik/periode')).data.kategori_diizinkan.includes('Startup Uji'), true);
+  assert.equal((await ADM('DELETE', '/kategori-perusahaan/2')).status, 409); // dipakai di pengajuan
+  assert.equal((await ADM('DELETE', `/kategori-perusahaan/${baru.id}`)).status, 200);
+});
+
+test('template surat: bawaan, validasi format, aktifkan kustom dan terbitkan surat', async () => {
+  const daftar = (await ADM('GET', '/template-surat')).data;
+  const bawaanRek = daftar.find((t) => t.jenis_surat === 'rekomendasi' && t.bawaan);
+  assert.ok(bawaanRek && bawaanRek.is_aktif);
+
+  const isiBawaan = (await ADM('GET', `/template-surat/${bawaanRek.id}/isi`)).data.isi_template;
+  assert.match(isiBawaan, /^@profil rekomendasi/);
+
+  // Tolak jenis profil salah atau sintaks @baris rusak
+  assert.equal((await ADM('POST', '/template-surat', {
+    jenis_surat: 'rekomendasi', nama_template: 'Salah Profil', isi_template: '@profil konversi\n\nHalo',
+  })).status, 400);
+  assert.equal((await ADM('POST', '/template-surat', {
+    jenis_surat: 'rekomendasi', nama_template: 'Baris Rusak', isi_template: '@profil rekomendasi\n\n@baris 80 150 160\nTanpa titik dua',
+  })).status, 400);
+
+  // Simpan template kustom aktif lalu terbitkan surat dengan template tersebut
+  const kustom = (await ADM('POST', '/template-surat', {
+    jenis_surat: 'rekomendasi', nama_template: 'Rekomendasi Kustom Uji', isi_template: isiBawaan.replace('SURAT REKOMENDASI', 'SURAT REKOMENDASI KUSTOM'),
+  })).data;
+  assert.equal(kustom.is_aktif, true);
+  const idMhs = await mahasiswa('t-tmpl', 'tmpl@uji.test', '11120005');
+  const idPeng = await pengajuan(idMhs);
+  assert.equal((await ADM('POST', `/rekomendasi/${idPeng}/setujui`, {})).status, 200);
+  const { rows: [surat] } = await db.query('SELECT id_template FROM surat WHERE id_pengajuan = $1', [idPeng]);
+  assert.equal(surat.id_template, kustom.id);
+
+  // Template bawaan / aktif / sudah terpakai tidak bisa dihapus; aktifkan kembali bawaan lalu tes template menganggur
+  assert.equal((await ADM('DELETE', `/template-surat/${bawaanRek.id}`)).status, 409);
+  assert.equal((await ADM('DELETE', `/template-surat/${kustom.id}`)).status, 409);
+  assert.equal((await ADM('PUT', `/template-surat/${bawaanRek.id}/aktifkan`)).status, 200);
+  assert.equal((await ADM('DELETE', `/template-surat/${kustom.id}`)).status, 409); // sudah dipakai di surat
+
+  const nganggur = (await ADM('POST', '/template-surat', {
+    jenis_surat: 'konversi',
+    nama_template: 'Konversi Nganggur',
+    isi_template: (await ADM('GET', `/template-surat/${daftar.find((t) => t.jenis_surat === 'konversi' && t.bawaan).id}/isi`)).data.isi_template,
+    aktifkan: false,
+  })).data;
+  assert.equal(storage.isi.has(nganggur.file_template), true);
+  assert.equal((await ADM('DELETE', `/template-surat/${nganggur.id}`)).status, 200);
+  assert.equal(storage.isi.has(nganggur.file_template), false);
+});
+

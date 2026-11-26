@@ -17,8 +17,8 @@ export function storageUji() {
   let n = 0;
   return {
     isi,
-    async simpan(buffer, folder) {
-      const lokasi = `${folder}/${++n}.pdf`;
+    async simpan(buffer, folder, { ekstensi = 'pdf' } = {}) {
+      const lokasi = `${folder}/${++n}.${ekstensi}`;
       isi.set(lokasi, buffer);
       return lokasi;
     },

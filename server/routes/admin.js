@@ -4,9 +4,10 @@ import express from 'express';
 import { Galat, catat, iso, kirimPdf, q, riwayatDari, salah, satu } from '../lib.js';
 import {
   BATAS_MAGANG, DOKUMEN_AKHIR, alasanSah, evaluasiPengajuan, hariIni, jadwal, nomorTampil, syaratPengajuan,
-  bacaTtd, validasiAkunDosen, validasiHasilKonversi, validasiMataKuliah, validasiNomorSurat, validasiPeriode,
+  bacaTtd, validasiAkunDosen, validasiHasilKonversi, validasiKategoriPerusahaan, validasiMataKuliah,
+  validasiMetaTemplate, validasiNomorSurat, validasiPeriode, validasiTelepon,
 } from '../rules.js';
-import { angkaTerbilang, bulanTahunId, buatSuratPdf, lamaBulan, nomorSuratBerikut, tanggalAngkaId, tanggalPanjangId } from '../surat.js';
+import { angkaTerbilang, bacaTeksTemplat, bulanTahunId, buatSuratPdf, lamaBulan, nomorSuratBerikut, tanggalAngkaId, tanggalPanjangId, validasiTemplatSurat } from '../surat.js';
 
 const TEMPLAT = { rekomendasi: 'surat-rekomendasi.txt', konversi: 'surat-konversi.txt' };
 const WAJIB = DOKUMEN_AKHIR.filter((d) => d.wajib).map((d) => d.jenis);
@@ -35,10 +36,10 @@ export default function routerAdmin({ db, storage, akun, email }) {
   // Periode berjalan = yang terbaru dan sudah dipublikasikan (draft belum terlihat mahasiswa).
   const periodeTerbaru = (c) => satu(c, "SELECT * FROM periode_magang WHERE status = 'dipublikasikan' ORDER BY id_periode DESC LIMIT 1");
   const namaAdmin = async (c, idAdmin) => (idAdmin ? (await satu(c, 'SELECT u.nama FROM admin a JOIN users u USING (id_user) WHERE a.id_admin = $1', [idAdmin]))?.nama ?? null : null);
-  const templatTerpasang = async (c, jenis) => {
-    const ada = await satu(c, 'SELECT id_template FROM template_surat WHERE jenis_surat = $1 AND is_aktif', [jenis]);
-    if (ada) return ada.id_template;
-    return (await satu(c, "INSERT INTO template_surat (jenis_surat, nama_template, file_template) VALUES ($1, 'Templat bawaan', $2) RETURNING id_template", [jenis, `/templates/${TEMPLAT[jenis]}`])).id_template;
+  const templatAktif = async (c, jenis) => {
+    const ada = await satu(c, 'SELECT id_template, file_template FROM template_surat WHERE jenis_surat = $1 AND is_aktif', [jenis]);
+    if (ada) return ada;
+    return satu(c, "INSERT INTO template_surat (jenis_surat, nama_template, file_template) VALUES ($1, 'Templat bawaan', $2) RETURNING id_template, file_template", [jenis, `/templates/${TEMPLAT[jenis]}`]);
   };
   const hitung = async (sql, p) => (await satu(db, sql, p)).n;
 
@@ -318,13 +319,14 @@ export default function routerAdmin({ db, storage, akun, email }) {
     const sekarang = new Date();
     const nomorSurat = nomor || await nomorSuratBerikut(c, 'rekomendasi', 'REK', sekarang);
     await nomorBebas(c, nomorSurat);
-    const pdf = await buatSuratPdf(TEMPLAT.rekomendasi, dataRekomendasi(p, nomorSurat, sekarang, ttd));
+    const tmpl = await templatAktif(c, 'rekomendasi');
+    const pdf = await buatSuratPdf(tmpl.file_template, dataRekomendasi(p, nomorSurat, sekarang, ttd), [], { storage });
     const lokasi = await storage.simpan(pdf, 'surat/rekomendasi');
     baru.push(lokasi);
     await c.query('UPDATE pengajuan_rekomendasi SET divalidasi_oleh = $1, divalidasi_pada = now(), alasan_penolakan = NULL WHERE id_pengajuan = $2', [req.admin.id_admin, p.id_pengajuan]);
     await catat(c, 'pengajuan_rekomendasi', p.id_pengajuan, 'diajukan', 'disetujui', req.user.id_user);
     await c.query('INSERT INTO surat (jenis_surat, nomor_surat, id_pengajuan, id_template, file_pdf, diterbitkan_oleh) VALUES ($1, $2, $3, $4, $5, $6)',
-      ['rekomendasi', nomorSurat, p.id_pengajuan, await templatTerpasang(c, 'rekomendasi'), lokasi, req.admin.id_admin]);
+      ['rekomendasi', nomorSurat, p.id_pengajuan, tmpl.id_template, lokasi, req.admin.id_admin]);
     await catat(c, 'pengajuan_rekomendasi', p.id_pengajuan, 'disetujui', 'diterbitkan', req.user.id_user);
     return nomorSurat;
   }
@@ -338,7 +340,8 @@ export default function routerAdmin({ db, storage, akun, email }) {
     const s = await satu(db, 'SELECT nomor_surat, diterbitkan_pada FROM surat WHERE id_pengajuan = $1', [p.id_pengajuan]);
     const tanggal = s?.diterbitkan_pada ?? new Date();
     const nomor = o.nomor || s?.nomor_surat || await nomorSuratBerikut(db, 'rekomendasi', 'REK', tanggal);
-    kirimPdf(res, await buatSuratPdf(TEMPLAT.rekomendasi, dataRekomendasi(p, nomor, tanggal, o.ttd)), 'Pratinjau Surat Rekomendasi.pdf');
+    const tmpl = await templatAktif(db, 'rekomendasi');
+    kirimPdf(res, await buatSuratPdf(tmpl.file_template, dataRekomendasi(p, nomor, tanggal, o.ttd), [], { storage }), 'Pratinjau Surat Rekomendasi.pdf');
   });
 
   // Terbitkan ulang surat yang sudah terbit (mis. hasil validasi massal yang memakai nomor otomatis): nomor/TTD baru,
@@ -353,9 +356,10 @@ export default function routerAdmin({ db, storage, akun, email }) {
       if (p.status !== 'diterbitkan' || !s) throw new Galat(409, 'Surat rekomendasi ini belum diterbitkan.');
       const nomorSurat = o.nomor || s.nomor_surat;
       if (nomorSurat !== s.nomor_surat) await nomorBebas(c, nomorSurat);
-      const lokasi = await storage.simpan(await buatSuratPdf(TEMPLAT.rekomendasi, dataRekomendasi(p, nomorSurat, s.diterbitkan_pada, o.ttd)), 'surat/rekomendasi');
+      const tmpl = await templatAktif(c, 'rekomendasi');
+      const lokasi = await storage.simpan(await buatSuratPdf(tmpl.file_template, dataRekomendasi(p, nomorSurat, s.diterbitkan_pada, o.ttd), [], { storage }), 'surat/rekomendasi');
       baru.push(lokasi);
-      await c.query('UPDATE surat SET nomor_surat = $1, file_pdf = $2 WHERE id_surat = $3', [nomorSurat, lokasi, s.id_surat]);
+      await c.query('UPDATE surat SET nomor_surat = $1, file_pdf = $2, id_template = $3 WHERE id_surat = $4', [nomorSurat, lokasi, tmpl.id_template, s.id_surat]);
       lama = s.file_pdf;
       return nomorSurat;
     }));
@@ -612,16 +616,17 @@ export default function routerAdmin({ db, storage, akun, email }) {
       const sekarang = new Date();
       const nomorSurat = await nomorSuratBerikut(c, 'konversi', 'KNV', sekarang);
       const total = data.matkul.reduce((t, m) => t + m.sks_diakui, 0);
-      const pdf = await buatSuratPdf(TEMPLAT.konversi, {
+      const tmpl = await templatAktif(c, 'konversi');
+      const pdf = await buatSuratPdf(tmpl.file_template, {
         nomor_surat: nomorSurat, tahun_akademik: data.tahun_akademik ?? '', nama: data.mahasiswa.nama, npm: data.mahasiswa.npm, angkatan: angkatan(data.mahasiswa.npm),
         kegiatan: `Magang Mandiri sebagai ${data.posisi} di ${data.nama_perusahaan}, selama ${angkaTerbilang(lamaBulan(data.tgl_mulai, data.tgl_selesai))} bulan.`,
         total_sks: angkaTerbilang(total), tanggal_surat: tanggalPanjangId(sekarang),
       // Kolom SEM: SDD tidak menyimpan semester per mata kuliah, jadi diisi semester mahasiswa.
-      }, data.matkul.map((m) => ({ ...m, semester: data.mahasiswa.semester })));
+      }, data.matkul.map((m) => ({ ...m, semester: data.mahasiswa.semester })), { storage });
       const lokasi = await storage.simpan(pdf, 'surat/konversi');
       baru.push(lokasi);
       await c.query('INSERT INTO surat (jenis_surat, nomor_surat, id_konversi, id_template, file_pdf, diterbitkan_oleh) VALUES ($1, $2, $3, $4, $5, $6)',
-        ['konversi', nomorSurat, k.id_konversi, await templatTerpasang(c, 'konversi'), lokasi, req.admin.id_admin]);
+        ['konversi', nomorSurat, k.id_konversi, tmpl.id_template, lokasi, req.admin.id_admin]);
       await catat(c, 'pengajuan_konversi', k.id_konversi, 'diproses', 'diterbitkan', req.user.id_user);
       return { nomor: nomorSurat, data, total };
     }));
@@ -872,6 +877,147 @@ export default function routerAdmin({ db, storage, akun, email }) {
     const p = await satu(db, 'UPDATE periode_magang SET status = $1 WHERE id_periode = $2 RETURNING *', [req.body.status, Number(req.params.id)]);
     if (!p) throw new Galat(404, 'Periode tidak ditemukan.');
     res.json(periodeDari(p));
+  });
+
+  // ---------- profil admin ----------
+  r.get('/profil', (req, res) => res.json({
+    nama: req.user.nama, email: req.user.email, nip: req.admin.nip, jabatan: req.admin.jabatan, no_telepon: req.admin.no_telepon,
+  }));
+
+  r.put('/profil', async (req, res) => {
+    salah(validasiTelepon(req.body?.no_telepon));
+    await db.query('UPDATE admin SET no_telepon = $1 WHERE id_admin = $2', [req.body.no_telepon, req.admin.id_admin]);
+    res.json({ ok: true });
+  });
+
+  // ---------- kategori perusahaan (FR-03, SDD tabel 8) ----------
+  const KATEGORI_SQL = `SELECT k.id_kategori AS id, k.nama_kategori, k.is_diizinkan,
+      (SELECT count(*)::int FROM pengajuan_rekomendasi p WHERE p.id_kategori = k.id_kategori) AS dipakai
+    FROM kategori_perusahaan k`;
+
+  r.get('/kategori-perusahaan', async (_req, res) => res.json(await q(db, `${KATEGORI_SQL} ORDER BY k.id_kategori`)));
+
+  r.post('/kategori-perusahaan', async (req, res) => {
+    const b = req.body ?? {};
+    salah(validasiKategoriPerusahaan(b));
+    try {
+      const k = await satu(db, 'INSERT INTO kategori_perusahaan (nama_kategori, is_diizinkan) VALUES ($1, $2) RETURNING id_kategori AS id, nama_kategori, is_diizinkan',
+        [b.nama_kategori.trim(), b.is_diizinkan ?? true]);
+      res.status(201).json({ ...k, dipakai: 0 });
+    } catch (e) {
+      if (e.code === '23505') throw new Galat(409, 'Nama kategori perusahaan sudah ada.');
+      throw e;
+    }
+  });
+
+  r.put('/kategori-perusahaan/:id', async (req, res) => {
+    const b = req.body ?? {};
+    salah(validasiKategoriPerusahaan(b));
+    if (typeof b.is_diizinkan !== 'boolean') throw new Galat(400, 'Status izin kategori wajib dipilih.');
+    try {
+      const k = await satu(db, 'UPDATE kategori_perusahaan SET nama_kategori = $1, is_diizinkan = $2 WHERE id_kategori = $3 RETURNING id_kategori AS id, nama_kategori, is_diizinkan',
+        [b.nama_kategori.trim(), b.is_diizinkan, Number(req.params.id)]);
+      if (!k) throw new Galat(404, 'Kategori perusahaan tidak ditemukan.');
+      res.json(k);
+    } catch (e) {
+      if (e.code === '23505') throw new Galat(409, 'Nama kategori perusahaan sudah ada.');
+      throw e;
+    }
+  });
+
+  r.delete('/kategori-perusahaan/:id', async (req, res) => {
+    try {
+      const h = await satu(db, 'DELETE FROM kategori_perusahaan WHERE id_kategori = $1 RETURNING id_kategori', [Number(req.params.id)]);
+      if (!h) throw new Galat(404, 'Kategori perusahaan tidak ditemukan.');
+      res.json({ ok: true });
+    } catch (e) {
+      if (e.code === '23503') throw new Galat(409, 'Kategori perusahaan sudah dipakai pada pengajuan rekomendasi, jadi tidak bisa dihapus.');
+      throw e;
+    }
+  });
+
+  // ---------- template surat (NFR-06, SDD tabel 16) ----------
+  const pastikanTemplatBawaan = async (c) => {
+    for (const jenis of ['rekomendasi', 'konversi']) {
+      const ada = await satu(c, 'SELECT 1 FROM template_surat WHERE jenis_surat = $1 LIMIT 1', [jenis]);
+      if (!ada) {
+        try {
+          await c.query("INSERT INTO template_surat (jenis_surat, nama_template, file_template) VALUES ($1, 'Templat bawaan', $2)", [jenis, `/templates/${TEMPLAT[jenis]}`]);
+        } catch (e) {
+          if (e.code !== '23505') throw e;
+        }
+      }
+    }
+  };
+
+  r.get('/template-surat', async (req, res) => {
+    await pastikanTemplatBawaan(db);
+    const rows = await q(db, `SELECT t.id_template AS id, t.jenis_surat, t.nama_template, t.file_template, t.is_aktif,
+        (SELECT count(*)::int FROM surat s WHERE s.id_template = t.id_template) AS dipakai
+      FROM template_surat t ORDER BY t.jenis_surat DESC, t.is_aktif DESC, t.id_template DESC`);
+    const jenis = ['rekomendasi', 'konversi'].includes(req.query.jenis) ? req.query.jenis : null;
+    res.json(rows.filter((t) => !jenis || t.jenis_surat === jenis).map((t) => ({ ...t, bawaan: t.file_template.startsWith('/templates/') })));
+  });
+
+  r.get('/template-surat/:id/isi', async (req, res) => {
+    const t = await satu(db, 'SELECT id_template AS id, jenis_surat, nama_template, file_template, is_aktif FROM template_surat WHERE id_template = $1', [Number(req.params.id)]);
+    if (!t) throw new Galat(404, 'Template surat tidak ditemukan.');
+    const isi = await bacaTeksTemplat(t.file_template, storage);
+    if (req.query.unduh === '1') {
+      const berkasAman = `${t.nama_template.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-|-$/g, '') || `template-${t.jenis_surat}`}.txt`;
+      return res.type('text/plain; charset=utf-8').set('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(berkasAman)}`).send(isi);
+    }
+    res.json({ id: t.id, jenis_surat: t.jenis_surat, nama_template: t.nama_template, is_aktif: t.is_aktif, bawaan: t.file_template.startsWith('/templates/'), isi_template: isi });
+  });
+
+  r.post('/template-surat', async (req, res) => {
+    const b = req.body ?? {};
+    salah(validasiMetaTemplate(b));
+    salah(await validasiTemplatSurat(b.isi_template, b.jenis_surat));
+    const aktifkan = b.aktifkan !== false;
+    const hasil = await denganPembersihan(async (baru) => {
+      let lokasi;
+      try {
+        lokasi = await storage.simpan(Buffer.from(b.isi_template, 'utf8'), `template/${b.jenis_surat}`, { ekstensi: 'txt', tipe: 'text/plain' });
+      } catch (e) {
+        if (/mime/i.test(e.message)) throw new Galat(400, 'Bucket penyimpanan belum mengizinkan berkas teks (.txt). Izinkan text/plain pada bucket Storage.');
+        throw e;
+      }
+      baru.push(lokasi);
+      return db.transaksi(async (c) => {
+        await pastikanTemplatBawaan(c);
+        if (aktifkan) await c.query('UPDATE template_surat SET is_aktif = FALSE WHERE jenis_surat = $1 AND is_aktif', [b.jenis_surat]);
+        const row = await satu(c, 'INSERT INTO template_surat (jenis_surat, nama_template, file_template, is_aktif) VALUES ($1, $2, $3, $4) RETURNING id_template AS id, jenis_surat, nama_template, file_template, is_aktif',
+          [b.jenis_surat, b.nama_template.trim(), lokasi, aktifkan]);
+        return { ...row, dipakai: 0, bawaan: false };
+      });
+    });
+    res.status(201).json(hasil);
+  });
+
+  r.put('/template-surat/:id/aktifkan', async (req, res) => {
+    await db.transaksi(async (c) => {
+      const t = await satu(c, 'SELECT id_template, jenis_surat FROM template_surat WHERE id_template = $1 FOR UPDATE', [Number(req.params.id)]);
+      if (!t) throw new Galat(404, 'Template surat tidak ditemukan.');
+      await c.query('UPDATE template_surat SET is_aktif = FALSE WHERE jenis_surat = $1 AND is_aktif', [t.jenis_surat]);
+      await c.query('UPDATE template_surat SET is_aktif = TRUE WHERE id_template = $1', [t.id_template]);
+    });
+    res.json({ ok: true });
+  });
+
+  r.delete('/template-surat/:id', async (req, res) => {
+    const t = await satu(db, 'SELECT id_template, file_template, is_aktif FROM template_surat WHERE id_template = $1', [Number(req.params.id)]);
+    if (!t) throw new Galat(404, 'Template surat tidak ditemukan.');
+    if (t.file_template.startsWith('/templates/')) throw new Galat(409, 'Template bawaan sistem tidak dapat dihapus.');
+    if (t.is_aktif) throw new Galat(409, 'Aktifkan template lain terlebih dahulu sebelum menghapus template ini.');
+    try {
+      await db.query('DELETE FROM template_surat WHERE id_template = $1', [t.id_template]);
+    } catch (e) {
+      if (e.code === '23503') throw new Galat(409, 'Template sudah dipakai pada surat yang terbit, jadi tidak bisa dihapus.');
+      throw e;
+    }
+    await storage.hapus(t.file_template);
+    res.json({ ok: true });
   });
 
   return r;

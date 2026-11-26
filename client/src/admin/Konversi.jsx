@@ -35,9 +35,15 @@ export function DaftarKonversi() {
 
   return (
     <div className="halaman admin-lebar">
-      <header className="masuk">
-        <h1 className="judul">Penerimaan Konversi SKS</h1>
-        <p className="sub">Periksa berkas penerimaan dan silabus, petakan mata kuliah, lalu setujui konversi.</p>
+      <header className="halaman-kepala masuk">
+        <div>
+          <h1 className="judul">Penerimaan Konversi SKS</h1>
+          <p className="sub">Periksa berkas penerimaan dan silabus, petakan mata kuliah, lalu setujui konversi.</p>
+        </div>
+        <div className="aksi-keputusan" style={{ marginTop: 0 }}>
+          <Link to="/admin/mata-kuliah" className="btn garis kecil">Mata Kuliah</Link>
+          <Link to="/admin/template-surat?jenis=konversi" className="btn garis kecil">Template Surat</Link>
+        </div>
       </header>
       <Ringkasan />
       <section className="kartu">
