@@ -28,6 +28,30 @@ function UbahAktif({ akun, onTutup, muat }) {
   );
 }
 
+// Hapus permanen. Mahasiswa dihapus beserta seluruh datanya; dosen yang sudah punya riwayat ditolak server dan diarahkan ke Nonaktifkan.
+function HapusAkun({ akun, jenis, onTutup, muat }) {
+  const { sibuk, galat, jalan } = useAksi(muat);
+  const mahasiswa = jenis === 'mahasiswa';
+  return (
+    <Dialog judul="Hapus Akun Permanen?" onTutup={onTutup}>
+      <p className="isi"><strong>{akun.nama}</strong>{mahasiswa ? ` (${akun.npm})` : ''} dan akun loginnya akan dihapus <strong>permanen</strong>.</p>
+      {mahasiswa
+        ? <p className="isi">Semua data mahasiswa ini ikut terhapus: data diri, pengajuan surat rekomendasi dan konversi, dokumen, surat yang sudah terbit, dan riwayatnya.</p>
+        : <p className="isi">Dosen yang sudah punya mahasiswa bimbingan atau riwayat pemeriksaan tidak bisa dihapus; untuk itu gunakan Nonaktifkan.</p>}
+      <p className="banner-peringatan" style={{ margin: '12px 0 0' }}>Tindakan ini tidak dapat dibatalkan. Untuk sekadar menutup akses, pilih Nonaktifkan.</p>
+      {galat && <p className="pesan galat" role="alert">{galat}</p>}
+      <div className="dialog-aksi">
+        <button className="btn garis" onClick={onTutup}>Batal</button>
+        <button className="btn garis bahaya" disabled={sibuk} onClick={async () => {
+          const h = await jalan(() => api(`/admin/akun/${akun.id_user}`, { method: 'DELETE' }),
+            (r) => (r.auth_dihapus ? { judul: 'Akun dihapus', teks: `${akun.nama} dan datanya sudah dihapus.` } : { jenis: 'info', judul: 'Data dihapus, akun login belum', teks: 'Hapus akun login di Supabase → Authentication → Users secara manual.' }));
+          if (h) onTutup();
+        }}>{sibuk ? 'Menghapus…' : 'Ya, Hapus Permanen'}</button>
+      </div>
+    </Dialog>
+  );
+}
+
 function TambahDosen({ onTutup, muat }) {
   const [f, setF] = useState(KOSONG);
   const { sibuk, galat, jalan } = useAksi(muat);
@@ -69,6 +93,7 @@ function TabDosen() {
   const { data, error, muat } = useApi(`/admin/akun/dosen?q=${encodeURIComponent(cari)}&status=${status}`);
   const [tambah, setTambah] = useState(false);
   const [ubah, setUbah] = useState(null);
+  const [hapus, setHapus] = useState(null);
   return (
     <>
       <div className="alat-tabel">
@@ -88,10 +113,10 @@ function TabDosen() {
                   <td>
                     <div className="status-akun">
                       <StatusAkun aktif={d.is_aktif} />
-                      <span className={`badge ${d.email_terverifikasi ? 'hijau' : 'kuning'}`}>{d.email_terverifikasi ? 'Email terverifikasi' : 'Email belum diverifikasi'}</span>
+                      <span className={`badge ${d.email_terverifikasi === null ? 'merah' : d.email_terverifikasi ? 'hijau' : 'kuning'}`}>{d.email_terverifikasi === null ? 'Akun login tidak ditemukan' : d.email_terverifikasi ? 'Email terverifikasi' : 'Email belum diverifikasi'}</span>
                     </div>
                   </td>
-                  <td><div className="aksi-akun"><button className={`btn garis kecil${d.is_aktif ? ' bahaya' : ''}`} onClick={() => setUbah(d)}>{d.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>{!d.email_terverifikasi && <KirimUlangVerifikasi d={d} muat={muat} />}</div></td>
+                  <td><div className="aksi-akun"><button className={`btn garis kecil${d.is_aktif ? ' bahaya' : ''}`} onClick={() => setUbah(d)}>{d.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>{d.email_terverifikasi === false && <KirimUlangVerifikasi d={d} muat={muat} />}<button className="btn garis kecil bahaya" onClick={() => setHapus(d)}>Hapus</button></div></td>
                 </tr>
               ))}
             </tbody>
@@ -100,6 +125,7 @@ function TabDosen() {
       )}
       {tambah && <TambahDosen onTutup={() => setTambah(false)} muat={muat} />}
       {ubah && <UbahAktif akun={ubah} onTutup={() => setUbah(null)} muat={muat} />}
+      {hapus && <HapusAkun akun={hapus} jenis="dosen" onTutup={() => setHapus(null)} muat={muat} />}
     </>
   );
 }
@@ -109,6 +135,7 @@ function TabMahasiswa() {
   const [status, setStatus] = useState('semua');
   const { data, error, muat } = useApi(`/admin/mahasiswa?q=${encodeURIComponent(cari)}${status === 'semua' ? '' : `&status=${status}`}`);
   const [ubah, setUbah] = useState(null);
+  const [hapus, setHapus] = useState(null);
   return (
     <>
       <div className="alat-tabel">
@@ -127,9 +154,12 @@ function TabMahasiswa() {
                   <td>{m.nama}</td><td>{m.npm}</td><td>{m.email}</td>
                   <td><Badge nilai={m.status_verifikasi} /></td>
                   <td><StatusAkun aktif={m.is_aktif} /></td>
-                  <td className="td-aksi">
+                  <td>
+                    <div className="aksi-akun">
                     <Link className="btn garis kecil" to={`/admin/mahasiswa/${m.id}`}>{m.status_verifikasi === 'menunggu' ? 'Verifikasi' : 'Detail'}</Link>
                     <button className={`btn garis kecil${m.is_aktif ? ' bahaya' : ''}`} onClick={() => setUbah(m)}>{m.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                    <button className="btn garis kecil bahaya" onClick={() => setHapus(m)}>Hapus</button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -138,6 +168,7 @@ function TabMahasiswa() {
         </div>
       )}
       {ubah && <UbahAktif akun={ubah} onTutup={() => setUbah(null)} muat={muat} />}
+      {hapus && <HapusAkun akun={hapus} jenis="mahasiswa" onTutup={() => setHapus(null)} muat={muat} />}
     </>
   );
 }

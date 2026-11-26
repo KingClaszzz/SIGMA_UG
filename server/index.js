@@ -26,9 +26,11 @@ const akun = {
     const { error } = await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: urlMasuk } });
     if (error) throw new Error(error.message);
   },
+  // true / false = status verifikasi; null = akun login tidak ada di Supabase Auth (mis. sudah dihapus dari dashboard).
   async terverifikasi(authId) {
-    const { data } = await supabase.auth.admin.getUserById(authId);
-    return !!data?.user?.email_confirmed_at;
+    const { data, error } = await supabase.auth.admin.getUserById(authId);
+    if (error || !data?.user) return null;
+    return !!data.user.email_confirmed_at;
   },
   hapus: (authId) => supabase.auth.admin.deleteUser(authId),
 };

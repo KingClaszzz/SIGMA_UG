@@ -801,7 +801,9 @@ export default function routerAdmin({ db, storage, akun, email }) {
   r.post('/akun/dosen/:idUser/verifikasi-ulang', async (req, res) => {
     const u = await satu(db, "SELECT auth_id, email FROM users WHERE id_user = $1 AND peran = 'dosen'", [Number(req.params.idUser)]);
     if (!u) throw new Galat(404, 'Akun dosen tidak ditemukan.');
-    if (await akun.terverifikasi(u.auth_id)) throw new Galat(409, 'Email dosen ini sudah terverifikasi.');
+    const status = await akun.terverifikasi(u.auth_id);
+    if (status === null) throw new Galat(404, 'Akun login dosen ini tidak ditemukan di Supabase Auth, jadi email verifikasi tidak bisa dikirim. Nonaktifkan akun ini lalu buat ulang dengan email lain.');
+    if (status) throw new Galat(409, 'Email dosen ini sudah terverifikasi.');
     try {
       await akun.kirimVerifikasi(u.email);
     } catch (e) {
@@ -836,6 +838,59 @@ export default function routerAdmin({ db, storage, akun, email }) {
     let emailTerkirim = true;
     try { await akun.kirimVerifikasi(email); } catch { emailTerkirim = false; }
     res.status(201).json({ ok: true, email_terkirim: emailTerkirim });
+  });
+
+  // Hapus akun dosen/mahasiswa secara permanen. Mahasiswa dihapus beserta seluruh datanya (pengajuan, dokumen, surat, riwayat) dan berkas di storage.
+  // Dosen yang sudah punya mahasiswa bimbingan atau riwayat pemeriksaan ditolak (riwayatnya akan rusak); untuk itu gunakan Nonaktifkan.
+  r.delete('/akun/:idUser', async (req, res) => {
+    const idUser = Number(req.params.idUser);
+    const u = await satu(db, "SELECT id_user, auth_id, peran FROM users WHERE id_user = $1 AND peran IN ('dosen', 'mahasiswa')", [idUser]);
+    if (!u) throw new Galat(404, 'Akun dosen atau mahasiswa tidak ditemukan.');
+    const berkas = [];
+    await db.transaksi(async (c) => {
+      if (u.peran === 'dosen') {
+        const d = await satu(c, 'SELECT id_dosen FROM dosen WHERE id_user = $1', [idUser]);
+        if (d && (await satu(c, `SELECT 1 FROM penugasan_dosen WHERE id_dosen = $1 UNION ALL SELECT 1 FROM dokumen_akhir WHERE diperiksa_oleh = $1
+          UNION ALL SELECT 1 FROM riwayat_dokumen WHERE oleh = $2 LIMIT 1`, [d.id_dosen, idUser]))) {
+          throw new Galat(409, 'Dosen ini sudah punya mahasiswa bimbingan atau riwayat pemeriksaan, jadi tidak bisa dihapus. Nonaktifkan saja, atau ganti dosen pendampingnya di Penugasan Dosen lebih dulu.');
+        }
+        await c.query('DELETE FROM dosen WHERE id_user = $1', [idUser]);
+      } else {
+        const m = await satu(c, 'SELECT id_mahasiswa FROM mahasiswa WHERE id_user = $1', [idUser]);
+        if (m) {
+          const P = (await q(c, 'SELECT id_pengajuan FROM pengajuan_rekomendasi WHERE id_mahasiswa = $1', [m.id_mahasiswa])).map((x) => x.id_pengajuan);
+          const N = (await q(c, 'SELECT id_penerimaan FROM penerimaan_magang WHERE id_pengajuan = ANY($1::int[])', [P])).map((x) => x.id_penerimaan);
+          const K = (await q(c, 'SELECT id_konversi FROM pengajuan_konversi WHERE id_penerimaan = ANY($1::int[])', [N])).map((x) => x.id_konversi);
+          const lokasi = [
+            ...(await q(c, 'SELECT file_dokumen AS f FROM dokumen_pengajuan WHERE id_pengajuan = ANY($1::int[])', [P])),
+            ...(await q(c, 'SELECT file_surat_penerimaan AS f FROM penerimaan_magang WHERE id_penerimaan = ANY($1::int[])', [N])),
+            ...(await q(c, 'SELECT file_silabus AS f FROM pengajuan_konversi WHERE id_konversi = ANY($1::int[])', [K])),
+            ...(await q(c, 'SELECT file_dokumen AS f FROM dokumen_akhir WHERE id_penerimaan = ANY($1::int[])', [N])),
+            ...(await q(c, 'SELECT file_ttd AS f FROM dokumen_akhir WHERE id_penerimaan = ANY($1::int[])', [N])),
+            ...(await q(c, 'SELECT file_pdf AS f FROM surat WHERE id_pengajuan = ANY($1::int[]) OR id_konversi = ANY($2::int[])', [P, K])),
+          ];
+          berkas.push(...lokasi.map((x) => x.f).filter(Boolean));
+          // Urutan mengikuti kunci asing: yang bergantung dihapus lebih dulu.
+          await c.query("DELETE FROM riwayat_status WHERE (jenis_objek = 'pengajuan_rekomendasi' AND id_objek = ANY($1::int[])) OR (jenis_objek = 'pengajuan_konversi' AND id_objek = ANY($2::int[]))", [P, K]);
+          await c.query('DELETE FROM surat WHERE id_pengajuan = ANY($1::int[]) OR id_konversi = ANY($2::int[])', [P, K]);
+          await c.query('DELETE FROM penugasan_dosen WHERE id_konversi = ANY($1::int[])', [K]);
+          await c.query('DELETE FROM dokumen_akhir WHERE id_penerimaan = ANY($1::int[])', [N]);
+          await c.query('DELETE FROM pengajuan_konversi WHERE id_konversi = ANY($1::int[])', [K]);
+          await c.query('DELETE FROM riwayat_magang WHERE id_mahasiswa = $1', [m.id_mahasiswa]);
+          await c.query('DELETE FROM penerimaan_magang WHERE id_penerimaan = ANY($1::int[])', [N]);
+          await c.query('DELETE FROM pengajuan_rekomendasi WHERE id_pengajuan = ANY($1::int[])', [P]);
+          await c.query('DELETE FROM mahasiswa WHERE id_mahasiswa = $1', [m.id_mahasiswa]);
+        }
+      }
+      await c.query('DELETE FROM riwayat_status WHERE diubah_oleh = $1', [idUser]);
+      await c.query('DELETE FROM notifikasi_email WHERE id_user = $1', [idUser]);
+      await c.query('DELETE FROM users WHERE id_user = $1', [idUser]);
+    });
+    // Setelah data terhapus: berkas di storage, lalu akun login di Supabase Auth. Kegagalan di sini tidak membatalkan penghapusan data.
+    await Promise.all(berkas.map((f) => storage.hapus(f).catch(() => {})));
+    let authDihapus = true;
+    try { authDihapus = !(await akun.hapus(u.auth_id))?.error; } catch { authDihapus = false; }
+    res.json({ ok: true, auth_dihapus: authDihapus });
   });
 
   r.put('/akun/:idUser/aktif', async (req, res) => {

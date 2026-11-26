@@ -7,7 +7,7 @@ const db = await buatDbUji();
 const storage = storageUji();
 const identitas = {};
 const dibuat = [];
-const akunUji = { async buat({ email }) { if (email === 'ada@uji.test') throw new Error('EMAIL_ADA'); const id = `11111111-1111-4111-8111-${String(dibuat.length + 1).padStart(12, '0')}`; dibuat.push(id); return id; }, async hapus() {}, kirim: [], sudah: true, async kirimVerifikasi(email) { this.kirim.push(email); }, async terverifikasi() { return this.sudah; } };
+const akunUji = { async buat({ email }) { if (email === 'ada@uji.test') throw new Error('EMAIL_ADA'); const id = `11111111-1111-4111-8111-${String(dibuat.length + 1).padStart(12, '0')}`; dibuat.push(id); return id; }, dihapus: [], async hapus(id) { this.dihapus.push(id); }, kirim: [], sudah: true, async kirimVerifikasi(email) { this.kirim.push(email); }, async terverifikasi() { return this.sudah; } };
 const server = buatApp({ db, storage, verifikasi: async (t) => identitas[t] ?? null, akun: akunUji }).listen(0);
 test.after(() => server.close());
 
@@ -277,6 +277,10 @@ test('manajemen akun dosen', async () => {
   assert.equal((await ADM('GET', '/akun/dosen?q=baru')).data[0].email_terverifikasi, false);
   assert.equal((await ADM('POST', `/akun/dosen/${id_user}/verifikasi-ulang`)).status, 200);
   assert.deepEqual(akunUji.kirim, ['baru@uji.test', 'baru@uji.test']);
+  akunUji.sudah = null; // akun login hilang dari Supabase Auth
+  assert.equal((await ADM('GET', '/akun/dosen?q=baru')).data[0].email_terverifikasi, null);
+  assert.match((await ADM('POST', `/akun/dosen/${id_user}/verifikasi-ulang`)).data.error, /tidak ditemukan/);
+  akunUji.sudah = true;
   assert.equal((await ADM('POST', '/akun/dosen/999999/verifikasi-ulang')).status, 404);
 });
 
@@ -377,3 +381,36 @@ test('template surat: bawaan, validasi format, aktifkan kustom dan terbitkan sur
   assert.equal(storage.isi.has(nganggur.file_template), false);
 });
 
+
+test('hapus akun: mahasiswa beserta datanya, dosen tanpa riwayat; dosen berriwayat dan admin ditolak', async () => {
+  const hitung = async (sql, p) => (await db.query(sql, p)).rows[0].n;
+  // mahasiswa dengan pengajuan, dokumen pendukung (berkas storage), dan riwayat status
+  const idMhs = await mahasiswa('t-hapus', 'hapus@uji.test', '11124301');
+  const idPengajuan = await pengajuan(idMhs);
+  const lokasi = await storage.simpan(Buffer.from('%PDF-1.4'), 'uji/hapus');
+  await db.query("INSERT INTO dokumen_pengajuan (id_pengajuan, jenis_dokumen, file_dokumen, nama_asli, ukuran) VALUES ($1, 'rangkuman_nilai', $2, 'a.pdf', 8)", [idPengajuan, lokasi]);
+  await db.query("INSERT INTO riwayat_status (jenis_objek, id_objek, status_baru) VALUES ('pengajuan_rekomendasi', $1, 'diajukan')", [idPengajuan]);
+  const { rows: [u] } = await db.query("SELECT id_user, auth_id FROM users WHERE email = 'hapus@uji.test'");
+  assert.equal((await ADM('DELETE', `/akun/${u.id_user}`)).data.auth_dihapus, true);
+  assert.deepEqual([
+    await hitung('SELECT count(*)::int AS n FROM users WHERE id_user = $1', [u.id_user]),
+    await hitung('SELECT count(*)::int AS n FROM mahasiswa WHERE id_mahasiswa = $1', [idMhs]),
+    await hitung('SELECT count(*)::int AS n FROM pengajuan_rekomendasi WHERE id_pengajuan = $1', [idPengajuan]),
+    await hitung("SELECT count(*)::int AS n FROM riwayat_status WHERE jenis_objek = 'pengajuan_rekomendasi' AND id_objek = $1", [idPengajuan]),
+  ], [0, 0, 0, 0]);
+  assert.equal(storage.isi.has(lokasi), false); // berkas storage ikut dihapus
+  assert.ok(akunUji.dihapus.includes(u.auth_id)); // dan akun login di Supabase Auth
+  assert.equal((await ADM('DELETE', `/akun/${u.id_user}`)).status, 404); // sudah tidak ada
+
+  // dosen tanpa riwayat bisa dihapus; dosen yang sudah membimbing ditolak
+  const idDosenBaru = await akun('t-dosen-hapus', 'dosenhapus@uji.test', 'dosen');
+  await db.query("INSERT INTO dosen (id_user, nidn, no_telepon) VALUES ($1, '0912088599', '081200009999')", [idDosenBaru]);
+  assert.equal((await ADM('DELETE', `/akun/${idDosenBaru}`)).status, 200);
+  assert.equal(await hitung('SELECT count(*)::int AS n FROM dosen WHERE id_user = $1', [idDosenBaru]), 0);
+  const dibimbing = await ADM('DELETE', `/akun/${idDosenUser}`);
+  assert.equal(dibimbing.status, 409);
+  assert.match(dibimbing.data.error, /Nonaktifkan/);
+
+  // akun admin tidak bisa dihapus lewat fitur ini
+  assert.equal((await ADM('DELETE', `/akun/${idAdminUser}`)).status, 404);
+});

@@ -155,7 +155,9 @@
 
 /* Anak grid boleh menyusut agar tabel lebar bergulir di dalam kartu, bukan melebarkan halaman. */
 .halaman > *, .dua-kolom-admin > *, .kolom-samping > *, .tiga-kartu > * { min-width: 0; }
-.tabel-wrap td.td-aksi { flex-wrap: nowrap; }
+/* Tombol aksi turun baris bila ruang kurang (bukan terpotong di kanan); label lencana dalam tabel tidak dipecah jadi dua baris. */
+.tabel-wrap td.td-aksi { flex-wrap: wrap; }
+.tabel-wrap .badge { white-space: nowrap; }
 
 .profil-kepala { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .avatar-besar { display: grid; place-items: center; flex: none; width: 64px; height: 64px; border-radius: 50%; background: var(--violet-33); font-size: 22px; font-weight: 700; color: #fff; }
