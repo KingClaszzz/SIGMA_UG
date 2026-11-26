@@ -6,7 +6,7 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react
 import { icon, logo } from '../assets';
 import { api } from '../api';
 import { supabase, supabaseSiap } from '../supabase';
-import { arahDari, pesanAuth, usePeran, useSesi } from './sesi';
+import { arahDari, ambilGalatOAuth, keluar, pesanAuth, usePeran, useSesi } from './sesi';
 import './auth.css';
 
 // Setelah masuk, /arah mencari tahu peran pengguna lalu mengirimnya ke beranda yang sesuai.
@@ -85,7 +85,7 @@ function useKirim(fn) {
 export function Masuk() {
   const { memuat, sesi } = useSesi();
   const navigate = useNavigate();
-  const { state } = useLocation();
+  const { state, search, hash } = useLocation();
   const [params] = useSearchParams();
   const { galat, sibuk, kirim } = useKirim(async (f) => {
     const { error } = await supabase.auth.signInWithPassword({ email: f.get('email').trim(), password: f.get('password') });
@@ -93,14 +93,24 @@ export function Masuk() {
     navigate(state?.dari ?? arahPeran, { replace: true });
   });
   const [galatGoogle, setGalatGoogle] = useState(null);
+  const [sibukGoogle, setSibukGoogle] = useState(false);
 
   if (!memuat && sesi) return <Navigate to={arahPeran} replace />;
 
   async function google() {
     setGalatGoogle(null);
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}${arahPeran}` } });
-    if (error) setGalatGoogle(pesanAuth(error));
+    setSibukGoogle(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}${arahPeran}` } });
+      if (error) setGalatGoogle(pesanAuth(error));
+    } catch (err) {
+      setGalatGoogle(pesanAuth(err));
+    } finally {
+      setSibukGoogle(false);
+    }
   }
+
+  const galatTampil = galat ?? galatGoogle ?? ambilGalatOAuth(search, hash) ?? state?.galatAuth;
 
   return (
     <Tata judul="Selamat datang kembali" kaki={<>Belum punya akun? <Link to="/daftar">Daftar</Link></>}>
@@ -108,11 +118,11 @@ export function Masuk() {
       <form onSubmit={kirim} className="auth-form">
         <Kolom label="Email" name="email" type="email" autoComplete="email" required />
         <Sandi label="Kata sandi" tambahan={<Link to="/lupa-password" className="auth-lupa">Lupa kata sandi?</Link>} name="password" autoComplete="current-password" required />
-        {(galat || galatGoogle) && <p className="pesan galat" role="alert">{galat ?? galatGoogle}</p>}
-        <button className="btn isi auth-tombol" type="submit" disabled={sibuk || !supabaseSiap}>{sibuk ? 'Memproses…' : 'Masuk'}</button>
+        {galatTampil && <p className="pesan galat" role="alert">{galatTampil}</p>}
+        <button className="btn isi auth-tombol" type="submit" disabled={sibuk || sibukGoogle || !supabaseSiap}>{sibuk ? 'Memproses…' : 'Masuk'}</button>
       </form>
       <div className="auth-pemisah"><span>atau</span></div>
-      <button type="button" className="btn garis auth-tombol" onClick={google} disabled={!supabaseSiap}>
+      <button type="button" className="btn garis auth-tombol" onClick={google} disabled={sibuk || sibukGoogle || !supabaseSiap}>
         <span className="g-huruf" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg></span>
         Masuk dengan Google
       </button>
@@ -243,9 +253,22 @@ export function AturUlangPassword() {
 
 export function ArahPeran() {
   const { memuat, sesi } = useSesi();
+  const navigate = useNavigate();
+  const { search, hash } = useLocation();
   const p = usePeran(sesi);
-  if (memuat || (sesi && p.memuat)) return <Muat penuh />;
+  const galatUrl = ambilGalatOAuth(search, hash);
+
+  useEffect(() => {
+    if (!p.galat && !galatUrl) return;
+    let aktif = true;
+    (async () => {
+      await keluar();
+      if (aktif) navigate('/masuk', { replace: true, state: { galatAuth: galatUrl ?? p.galat?.message } });
+    })();
+    return () => { aktif = false; };
+  }, [p.galat, galatUrl, navigate]);
+
+  if (galatUrl || p.galat || memuat || (sesi && p.memuat)) return <Muat penuh />;
   if (!sesi) return <Navigate to="/masuk" replace />;
-  if (p.galat) return <p className="sub" role="alert" style={{ padding: 32 }}>{p.galat.message}</p>;
   return <Navigate to={arahDari(p.peran)} replace />;
 }

@@ -20,13 +20,19 @@ function autentikasi({ db, verifikasi, gagalAuth }) {
       gagalAuth.catat(req.ip);
       throw new Galat(401, 'Sesi tidak valid atau sudah berakhir. Silakan masuk kembali.');
     }
+    const emailPengguna = id.email.trim().toLowerCase();
     let { rows: [user] } = await db.query('SELECT * FROM users WHERE auth_id = $1', [id.auth_id]);
     if (!user) {
-      ({ rows: [user] } = await db.query(
-        `INSERT INTO users (auth_id, email, nama, peran) VALUES ($1, $2, $3, 'mahasiswa')
-         ON CONFLICT (auth_id) DO UPDATE SET auth_id = EXCLUDED.auth_id RETURNING *`,
-        [id.auth_id, id.email, id.nama.slice(0, 60)],
-      ));
+      try {
+        ({ rows: [user] } = await db.query(
+          `INSERT INTO users (auth_id, email, nama, peran) VALUES ($1, $2, $3, 'mahasiswa')
+           ON CONFLICT (auth_id) DO UPDATE SET auth_id = EXCLUDED.auth_id RETURNING *`,
+          [id.auth_id, emailPengguna, id.nama.trim().slice(0, 60) || emailPengguna.split('@')[0]],
+        ));
+      } catch (e) {
+        if (e.code === '23505') throw new Galat(409, 'Email ini sudah terdaftar pada akun lain. Masuk menggunakan metode awal atau hubungi Admin Prodi.');
+        throw e;
+      }
     }
     if (!user.is_aktif) throw new Galat(403, 'Akun dinonaktifkan. Hubungi Admin Prodi.');
     req.user = user;

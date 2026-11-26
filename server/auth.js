@@ -5,6 +5,7 @@ export function verifikatorSupabase(supabase) {
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data?.user?.email) return null;
     const u = data.user;
-    return { auth_id: u.id, email: u.email, nama: u.user_metadata?.nama ?? u.user_metadata?.full_name ?? u.email.split('@')[0] };
+    const nama = (u.user_metadata?.nama ?? u.user_metadata?.full_name ?? u.user_metadata?.name ?? u.email.split('@')[0]).trim() || u.email.split('@')[0];
+    return { auth_id: u.id, email: u.email.trim().toLowerCase(), nama };
   };
 }
