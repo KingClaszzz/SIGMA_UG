@@ -1,5 +1,6 @@
 // PERAN: MAHASISWA (FR-16, UI-03/UI-05). Admin Prodi memverifikasi data ini dari halaman admin;
 // kolom status_verifikasi dan catatan_verifikasi diisi mereka.
+import { PESAN_ALAMAT, PESAN_NPM, POLA_NPM, REGEX_ALAMAT, rapikanAlamat } from '../format';
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api';
@@ -31,8 +32,13 @@ function DataDiri({ me, onSimpan, onSelesai }) {
 
   async function kirim(e) {
     e.preventDefault();
+    const alamat = rapikanAlamat(form.alamat);
+    if (!REGEX_ALAMAT.test(alamat)) {
+      setPesan({ teks: PESAN_ALAMAT, galat: true });
+      return;
+    }
     try {
-      await api('/mahasiswa/me', { method: 'PUT', body: form });
+      await api('/mahasiswa/me', { method: 'PUT', body: { ...form, alamat } });
       await onSimpan();
       setPesan({ teks: 'Data diri tersimpan dan menunggu verifikasi Admin Prodi.' });
       onSelesai?.();
@@ -57,7 +63,7 @@ function DataDiri({ me, onSimpan, onSelesai }) {
           <input required maxLength={60} readOnly={!baru} value={form.nama} onChange={ubah('nama')} />
         </label>
         <label>NPM
-          <input required inputMode="numeric" pattern="\d{8}" title="8 digit angka" readOnly={!baru} value={form.npm} onChange={ubah('npm')} />
+          <input required inputMode="numeric" pattern={POLA_NPM} title={PESAN_NPM} readOnly={!baru} value={form.npm} onChange={ubah('npm')} />
         </label>
         <label>Email
           <input type="email" readOnly value={form.email} />
@@ -66,7 +72,7 @@ function DataDiri({ me, onSimpan, onSelesai }) {
       {baru && <p className="catatan-kecil">Nama dan NPM hanya bisa diisi sekali. Email mengikuti akun login Anda. Hubungi Admin Prodi bila ada kesalahan.</p>}
 
       <h3 className="seksi">Data akademik</h3>
-      <div className="grid-form kolom-4">
+      <div className="grid-form tiga">
         <label>IPK
           <input type="number" step="0.01" min="0" max="4" required value={form.ipk} onChange={ubah('ipk')} />
         </label>
@@ -76,10 +82,10 @@ function DataDiri({ me, onSimpan, onSelesai }) {
         <label>Nomor telepon
           <input type="tel" required pattern="08[0-9]{8,11}" title="10–13 digit, diawali 08" value={form.no_telepon} onChange={ubah('no_telepon')} />
         </label>
-        <label>Alamat (tercetak di surat rekomendasi)
-          <input required minLength={10} maxLength={200} placeholder="Jalan, nomor, kelurahan, kecamatan, kota" value={form.alamat ?? ''} onChange={ubah('alamat')} />
-        </label>
       </div>
+      <label className="alamat-penuh">Alamat (tercetak di surat rekomendasi)
+        <textarea required rows={4} minLength={10} maxLength={200} title={PESAN_ALAMAT} placeholder="Jalan, nomor, RT/RW, kelurahan, kecamatan, kota" value={form.alamat ?? ''} onChange={ubah('alamat')} />
+      </label>
 
       <div className="centang">
         <label><input type="checkbox" checked={form.status_aktif} onChange={ubah('status_aktif')} /> Mahasiswa aktif</label>
@@ -137,7 +143,7 @@ function Riwayat({ me, onSimpan }) {
             <input required maxLength={150} value={form.nama_perusahaan} onChange={(e) => setForm({ ...form, nama_perusahaan: e.target.value })} />
           </label>
           <label>Tahun
-            <input type="number" required min="2000" max="2100" value={form.tahun} onChange={(e) => setForm({ ...form, tahun: e.target.value })} />
+            <input type="number" required min="2000" max={new Date().getFullYear()} title="Tidak boleh melebihi tahun ini" value={form.tahun} onChange={(e) => setForm({ ...form, tahun: e.target.value })} />
           </label>
           <button className="btn garis" type="submit">Tambah</button>
         </form>

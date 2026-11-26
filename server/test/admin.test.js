@@ -7,7 +7,7 @@ const db = await buatDbUji();
 const storage = storageUji();
 const identitas = {};
 const dibuat = [];
-const akunUji = { async buat({ email }) { if (email === 'ada@uji.test') throw new Error('EMAIL_ADA'); const id = `11111111-1111-4111-8111-${String(dibuat.length + 1).padStart(12, '0')}`; dibuat.push(id); return id; }, async hapus() {} };
+const akunUji = { async buat({ email }) { if (email === 'ada@uji.test') throw new Error('EMAIL_ADA'); const id = `11111111-1111-4111-8111-${String(dibuat.length + 1).padStart(12, '0')}`; dibuat.push(id); return id; }, async hapus() {}, kirim: [], sudah: true, async kirimVerifikasi(email) { this.kirim.push(email); }, async terverifikasi() { return this.sudah; } };
 const server = buatApp({ db, storage, verifikasi: async (t) => identitas[t] ?? null, akun: akunUji }).listen(0);
 test.after(() => server.close());
 
@@ -33,7 +33,7 @@ async function akun(token, email, peran) {
 async function mahasiswa(token, email, npm, { ipk = 3.5, verifikasi = 'terverifikasi', semester = 7, e = false } = {}) {
   const id_user = await akun(token, email, 'mahasiswa');
   const { rows: [m] } = await db.query(`INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, status_verifikasi)
-    VALUES ($1, $2, $3, $4, '081200000000', true, false, $5, $6) RETURNING id_mahasiswa`, [id_user, npm, ipk, semester, e, verifikasi]);
+    VALUES ($1, $2, $3, $4, '08120' || $7, true, false, $5, $6) RETURNING id_mahasiswa`, [id_user, npm, ipk, semester, e, verifikasi, npm.slice(-6)]);
   return m.id_mahasiswa;
 }
 async function pengajuan(idMhs, status = 'diajukan', kategori = 2) {
@@ -262,18 +262,35 @@ test('manajemen akun dosen', async () => {
   assert.equal((await ADM('GET', '/akun/dosen?status=nonaktif')).data.length, 1);
   assert.equal((await ADM('PUT', `/akun/${idAdminUser}/aktif`, { aktif: false })).status, 409); // bukan akun sendiri
   assert.equal((await ADM('GET', '/dosen')).data.some((d) => d.nidn === baru.nidn), false); // nonaktif tidak bisa dipilih
+
+  // verifikasi email: status terbaca dari Supabase, kirim ulang hanya untuk email yang belum terverifikasi
+  const { id_user } = daftar[0];
+  assert.equal((await ADM('GET', '/akun/dosen?q=baru')).data[0].email_terverifikasi, true);
+  assert.equal((await ADM('POST', `/akun/dosen/${id_user}/verifikasi-ulang`)).status, 409);
+  akunUji.sudah = false;
+  assert.equal((await ADM('GET', '/akun/dosen?q=baru')).data[0].email_terverifikasi, false);
+  assert.equal((await ADM('POST', `/akun/dosen/${id_user}/verifikasi-ulang`)).status, 200);
+  assert.deepEqual(akunUji.kirim, ['baru@uji.test']);
+  assert.equal((await ADM('POST', '/akun/dosen/999999/verifikasi-ulang')).status, 404);
 });
 
-test('NPM: cek ketersediaan untuk pendaftaran, lepas NPM hanya bila akun belum punya pengajuan', async () => {
-  const pengisiIseng = await mahasiswa('t-iseng', 'iseng@uji.test', '19990101', { verifikasi: 'menunggu' });
-  const sudahAjukan = await mahasiswa('t-ada', 'ada2@uji.test', '19990102');
+test('NPM dan nomor telepon: cek saat daftar, NPM harus berkode prodi Sistem Informasi, lepas NPM hanya bila belum punya pengajuan', async () => {
+  const pengisiIseng = await mahasiswa('t-iseng', 'iseng@uji.test', '11124101', { verifikasi: 'menunggu' });
+  const sudahAjukan = await mahasiswa('t-ada', 'ada2@uji.test', '11124102');
   await pengajuan(sudahAjukan);
-  assert.equal((await req(null, 'GET', '/publik/npm/19990101')).data.tersedia, false);
-  assert.equal((await req(null, 'GET', '/publik/npm/11120009')).data.tersedia, true);
+  assert.equal((await req(null, 'GET', '/publik/npm/11124101')).data.tersedia, false);
+  assert.equal((await req(null, 'GET', '/publik/npm/11124109')).data.tersedia, true);
   assert.equal((await req(null, 'GET', '/publik/npm/1234')).status, 400);
+  const bukanSI = await req(null, 'GET', '/publik/npm/19990109'); // 199 bukan kode prodi Sistem Informasi
+  assert.equal(bukanSI.status, 400);
+  assert.match(bukanSI.data.error, /Sistem Informasi/);
+  assert.equal((await req(null, 'GET', '/publik/npm/11999109')).status, 400); // angkatan 99 melebihi tahun ini
+  assert.equal((await req(null, 'GET', '/publik/telepon/08120124101')).data.tersedia, false);
+  assert.equal((await req(null, 'GET', '/publik/telepon/081299999999')).data.tersedia, true);
+  assert.equal((await req(null, 'GET', '/publik/telepon/123')).status, 400);
   assert.equal((await ADM('POST', `/mahasiswa/${sudahAjukan}/lepas-npm`)).status, 409);
   assert.equal((await ADM('POST', `/mahasiswa/${pengisiIseng}/lepas-npm`)).status, 200);
-  assert.equal((await req(null, 'GET', '/publik/npm/19990101')).data.tersedia, true);
+  assert.equal((await req(null, 'GET', '/publik/npm/11124101')).data.tersedia, true);
   const { rows: [u] } = await db.query("SELECT is_aktif FROM users WHERE email = 'iseng@uji.test'");
   assert.equal(u.is_aktif, false);
 });

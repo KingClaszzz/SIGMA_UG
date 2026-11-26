@@ -33,7 +33,7 @@ async function akun(token, peran) {
 async function bimbing(token, npm, idDosen) {
   const idUser = await akun(token, 'mahasiswa');
   const { rows: [m] } = await db.query(`INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e, status_verifikasi)
-    VALUES ($1, $2, 3.5, 7, '081200000000', true, false, false, 'terverifikasi') RETURNING id_mahasiswa`, [idUser, npm]);
+    VALUES ($1, $2, 3.5, 7, '08120' || $3, true, false, false, 'terverifikasi') RETURNING id_mahasiswa`, [idUser, npm, npm.slice(-6)]);
   const { rows: [p] } = await db.query(`INSERT INTO pengajuan_rekomendasi (id_mahasiswa, id_kategori, nama_perusahaan, kepada, alamat_perusahaan, tgl_mulai, tgl_selesai, status)
     VALUES ($1, 2, 'PT Uji', 'HRD', 'Depok', '2027-01-04', '2027-04-02', 'diterbitkan') RETURNING id_pengajuan`, [m.id_mahasiswa]);
   const { rows: [pen] } = await db.query(`INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, file_surat_penerimaan, pilih_konversi, status)

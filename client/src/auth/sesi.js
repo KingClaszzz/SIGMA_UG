@@ -16,6 +16,7 @@ export function useSesi() {
 }
 
 export async function keluar() {
+  await api('/keluar', { method: 'POST' }).catch(() => {}); // lepaskan akun agar bisa dipakai di perangkat lain
   await supabase?.auth.signOut();
 }
 

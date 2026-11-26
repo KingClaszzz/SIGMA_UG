@@ -1,5 +1,6 @@
 // PERAN: ADMIN PRODI — lonceng notifikasi (desain Figma: daftar peristiwa, titik belum dibaca, "Tandai Semua Dibaca", "Lihat Detail").
-// Peristiwa dihitung server dari data yang ada; yang disimpan hanya waktu terakhir "dibaca" per admin.
+// Peristiwa dihitung server dari data yang ada; yang disimpan server hanya waktu terakhir "Tandai Semua Dibaca".
+// Item yang sudah dibuka lewat "Lihat Detail" dicatat di peramban supaya titik merahnya hilang satu per satu.
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, useApi } from '../api';
@@ -11,7 +12,18 @@ export default function Notifikasi({ dasar = '/admin' }) {
   const { data, muat } = useApi(`${dasar}/notifikasi`);
   const [open, setOpen] = useState(false);
   const ref = useTutupLuar(open, setOpen);
-  const belum = data?.belum_dibaca ?? 0;
+  const simpan = `sigma-notif-dibaca:${dasar}`;
+  const [dibaca, setDibaca] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(simpan) ?? '[]')); } catch { return new Set(); }
+  });
+  const idItem = (x) => `${x.judul}|${x.nama}|${x.waktu}`;
+  const baru = (x) => x.baru && !dibaca.has(idItem(x));
+  const tandai = (x) => {
+    const s = new Set(dibaca).add(idItem(x));
+    setDibaca(s);
+    try { localStorage.setItem(simpan, JSON.stringify([...s].slice(-200))); } catch { /* peramban memblokir penyimpanan: titik merah kembali setelah dimuat ulang */ }
+  };
+  const belum = Math.max(0, (data?.belum_dibaca ?? 0) - (data?.item ?? []).filter((x) => x.baru && !baru(x)).length);
 
   return (
     <div className="lonceng" ref={ref}>
@@ -28,14 +40,14 @@ export default function Notifikasi({ dasar = '/admin' }) {
           {!data || data.item.length === 0 ? <p className="lonceng-kosong">Belum ada notifikasi.</p> : (
             <ul className="notif-daftar">
               {data.item.map((x, i) => (
-                <li key={i} className={x.baru ? 'baru' : ''}>
+                <li key={i} className={baru(x) ? 'baru' : ''}>
                   <span className="notif-titik" aria-hidden="true" />
                   <div>
                     <strong>{x.judul}</strong>
                     <p>{x.nama}{x.tambahan ? ` · ${x.tambahan}` : ''}</p>
                     <small>{waktuRelatif(x.waktu)}</small>
                   </div>
-                  <Link to={x.to} role="menuitem" className="aksi-kecil" onClick={() => setOpen(false)}>Lihat Detail</Link>
+                  <Link to={x.to} role="menuitem" className="aksi-kecil" onClick={() => { tandai(x); setOpen(false); }}>Lihat Detail</Link>
                 </li>
               ))}
             </ul>

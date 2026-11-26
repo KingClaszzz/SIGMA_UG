@@ -1,6 +1,6 @@
 // RUTE PUBLIK (tanpa login): dipakai landing page dan semua peran untuk membaca periode.
 import express from 'express';
-import { jadwal } from '../rules.js';
+import { jadwal, validasiNpm } from '../rules.js';
 
 export default function routerPublik({ db }) {
   const r = express.Router();
@@ -19,8 +19,16 @@ export default function routerPublik({ db }) {
 
   // Cek NPM sebelum daftar (tanpa login): satu NPM hanya boleh dipakai satu akun.
   r.get('/npm/:npm', async (req, res) => {
-    if (!/^\d{8}$/.test(req.params.npm)) return res.status(400).json({ error: 'NPM harus 8 digit angka.' });
+    const galat = validasiNpm(req.params.npm);
+    if (galat) return res.status(400).json({ error: galat });
     const { rows } = await db.query('SELECT 1 FROM mahasiswa WHERE npm = $1', [req.params.npm]);
+    res.json({ tersedia: rows.length === 0 });
+  });
+
+  // Cek nomor telepon sebelum daftar: satu nomor hanya untuk satu mahasiswa.
+  r.get('/telepon/:no', async (req, res) => {
+    if (!/^08\d{8,11}$/.test(req.params.no)) return res.status(400).json({ error: 'Nomor telepon harus 10–13 digit dan diawali 08.' });
+    const { rows } = await db.query('SELECT 1 FROM mahasiswa WHERE no_telepon = $1', [req.params.no]);
     res.json({ tersedia: rows.length === 0 });
   });
 

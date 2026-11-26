@@ -661,7 +661,22 @@ export default function routerAdmin({ db, storage, akun }) {
   // ---------- manajemen akun ----------
   r.get('/akun/dosen', async (req, res) => {
     const rows = await q(db, `${DOSEN_SQL} ORDER BY u.nama`);
-    res.json(rows.filter((d) => cocok(req.query.q, d.nama, d.nidn, d.email) && (!['aktif', 'nonaktif'].includes(req.query.status) || d.is_aktif === (req.query.status === 'aktif'))));
+    const authId = new Map((await q(db, "SELECT id_user, auth_id FROM users WHERE peran = 'dosen'")).map((u) => [u.id_user, u.auth_id]));
+    const tampil = rows.filter((d) => cocok(req.query.q, d.nama, d.nidn, d.email) && (!['aktif', 'nonaktif'].includes(req.query.status) || d.is_aktif === (req.query.status === 'aktif')));
+    // Dosen baru bisa masuk setelah mengklik tautan verifikasi di emailnya; admin melihat statusnya di sini.
+    res.json(await Promise.all(tampil.map(async (d) => ({ ...d, email_terverifikasi: await akun.terverifikasi(authId.get(d.id_user)) }))));
+  });
+
+  r.post('/akun/dosen/:idUser/verifikasi-ulang', async (req, res) => {
+    const u = await satu(db, "SELECT auth_id, email FROM users WHERE id_user = $1 AND peran = 'dosen'", [Number(req.params.idUser)]);
+    if (!u) throw new Galat(404, 'Akun dosen tidak ditemukan.');
+    if (await akun.terverifikasi(u.auth_id)) throw new Galat(409, 'Email dosen ini sudah terverifikasi.');
+    try {
+      await akun.kirimVerifikasi(u.email);
+    } catch (e) {
+      throw new Galat(400, `Email verifikasi gagal dikirim: ${e.message}`);
+    }
+    res.json({ ok: true });
   });
 
   r.post('/akun/dosen', async (req, res) => {

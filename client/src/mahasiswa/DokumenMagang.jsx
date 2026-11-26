@@ -69,7 +69,7 @@ function LaporanAkhir({ data, muat }) {
           <h2>Template Laporan Akhir</h2>
           <p className="isi" style={{ margin: '6px 0 12px' }}>Gunakan template laporan akhir dari prodi agar format sesuai ketentuan.</p>
           {data.template_laporan_tersedia
-            ? <button type="button" className="btn keras kecil" onClick={() => unduhBerkas('/mahasiswa/dokumen-magang/laporan_akhir/template', 'Template_Laporan_Akhir.docx').catch((e) => setGalat(e.message))}>Unduh Template Laporan Akhir</button>
+            ? <button type="button" className="btn keras kecil" onClick={() => unduhBerkas('/mahasiswa/dokumen-magang/laporan_akhir/template', data.template_laporan_nama).catch((e) => setGalat(e.message))}>Unduh Template Laporan Akhir</button>
             : <span className="badge kuning">Belum disediakan prodi</span>}
           {galat && <p className="pesan galat" role="alert">{galat}</p>}
         </section>

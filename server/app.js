@@ -8,6 +8,24 @@ import routerDosen from './routes/dosen.js';
 
 // Pengguna dikenali dari token Supabase Auth. Baris users dibuat otomatis (peran mahasiswa) saat pertama masuk;
 // akun admin dan dosen dibuat tim pengembang dengan mengisi users.peran (FR-01).
+// Satu akun hanya boleh dipakai di satu perangkat. users.sesi_id = sesi Supabase yang sedang memegang akun, users.last_login = aktivitas terakhirnya
+// (klien mengirim denyut tiap 2 menit selama halaman terbuka). Perangkat lain ditolak selama pemegang masih aktif; bila pemegang sudah diam
+// lebih dari SESI_DIAM_MS (peramban ditutup tanpa keluar), akun boleh diambil alih. Keluar melepaskan akun.
+export const SESI_DIAM_MS = 5 * 60_000;
+async function satuPerangkat(db, user, sesi) {
+  if (!sesi) return;
+  const sekarang = Date.now();
+  const diam = !user.last_login || sekarang - new Date(user.last_login).getTime() > SESI_DIAM_MS;
+  if (user.sesi_id && user.sesi_id !== sesi && !diam) {
+    throw new Galat(409, 'Akun ini sedang digunakan di perangkat lain. Silakan keluar (logout) dari perangkat tersebut terlebih dahulu.', 'SESI_LAIN');
+  }
+  // Tulis hanya bila berganti sesi atau aktivitas terakhir sudah lewat semenit, supaya tidak menulis di setiap permintaan.
+  if (user.sesi_id !== sesi || diam || sekarang - new Date(user.last_login).getTime() > 60_000) {
+    await db.query('UPDATE users SET sesi_id = $1, last_login = now() WHERE id_user = $2', [sesi, user.id_user]);
+    user.sesi_id = sesi;
+  }
+}
+
 function autentikasi({ db, verifikasi, gagalAuth }) {
   return async (req, res, next) => {
     // Token salah berulang dari satu alamat IP (menebak token) diblokir sementara.
@@ -28,6 +46,7 @@ function autentikasi({ db, verifikasi, gagalAuth }) {
       ));
     }
     if (!user.is_aktif) throw new Galat(403, 'Akun dinonaktifkan. Hubungi Admin Prodi.');
+    await satuPerangkat(db, user, id.sesi);
     req.user = user;
     next();
   };
@@ -73,6 +92,11 @@ export function buatApp({ db, storage, verifikasi, akun, batas = {} }) {
   const tulis = pembatas({ ...b.tulis, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET', pesan: 'Terlalu banyak tindakan dalam waktu singkat. Tunggu beberapa menit lalu coba lagi.' });
   const tulisAdmin = pembatas({ ...b.tulis, maks: b.tulis.maks * 5, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET' });
   app.get('/api/saya', masuk, (req, res) => res.json({ peran: req.user.peran, nama: req.user.nama, email: req.user.email }));
+  // Keluar: lepaskan akun supaya bisa dipakai di perangkat lain tanpa menunggu.
+  app.post('/api/keluar', masuk, async (req, res) => {
+    await db.query('UPDATE users SET sesi_id = NULL WHERE id_user = $1', [req.user.id_user]);
+    res.json({ ok: true });
+  });
   app.use('/api/mahasiswa', masuk, wajibPeran('mahasiswa'), tulis, routerMahasiswa({ db, storage }));
   app.use('/api/admin', masuk, wajibPeran('admin'), tulisAdmin, routerAdmin({ db, storage, akun }));
   app.use('/api/dosen', masuk, wajibPeran('dosen'), tulisAdmin, routerDosen({ db, storage }));
@@ -83,7 +107,7 @@ export function buatApp({ db, storage, verifikasi, akun, batas = {} }) {
   app.use((err, _req, res, _next) => {
     if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Ukuran berkas maksimal 2 MB.' });
     if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Permintaan tidak valid.' });
-    if (err.status && err.status < 500) return res.status(err.status).json({ error: err.message });
+    if (err.status && err.status < 500) return res.status(err.status).json({ error: err.message, ...(err.kode && { kode: err.kode }) });
     // Nilai yang tak bisa dibaca basis data (mis. id bukan angka) adalah salah masukan, bukan galat server.
     if (['22P02', '22003', '22007', '22008'].includes(err.code)) return res.status(400).json({ error: 'Permintaan tidak valid.' });
     console.error(err);

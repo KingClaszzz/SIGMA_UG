@@ -265,6 +265,14 @@ DROP TABLE IF EXISTS logbook_entri;
 ALTER TABLE dokumen_akhir ADD COLUMN IF NOT EXISTS ringkasan TEXT;
 -- Sinkron dengan SDD v2: kolom yang tidak ada di SDD dihapus. "Menunggu pemeriksaan ulang" dibaca dari riwayat_dokumen (aksi perbaikan).
 ALTER TABLE mahasiswa DROP COLUMN IF EXISTS jumlah_sks;
+-- Satu nomor telepon hanya untuk satu mahasiswa. Dilewati bila data lama masih ada yang kembar (aplikasi tetap menolak yang baru).
+DO $$ BEGIN
+  CREATE UNIQUE INDEX IF NOT EXISTS mahasiswa_no_telepon_unik ON mahasiswa (no_telepon);
+EXCEPTION WHEN unique_violation THEN
+  RAISE NOTICE 'Nomor telepon kembar: indeks unik belum dibuat.';
+END $$;
+-- Satu akun satu perangkat: sesi Supabase yang sedang memegang akun (aktivitas terakhirnya di users.last_login).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sesi_id UUID;
 ALTER TABLE dokumen_akhir DROP COLUMN IF EXISTS pernah_perbaikan, DROP COLUMN IF EXISTS ukuran, ALTER COLUMN file_dokumen DROP NOT NULL, ALTER COLUMN nama_asli DROP NOT NULL;
 ALTER TABLE penerimaan_magang DROP COLUMN IF EXISTS nama_surat_penerimaan, DROP COLUMN IF EXISTS ukuran_surat_penerimaan;
 ALTER TABLE pengajuan_konversi DROP COLUMN IF EXISTS nama_silabus, DROP COLUMN IF EXISTS ukuran_silabus;

@@ -223,4 +223,16 @@ Acuan: `docs/template/Surat Rekomendasi/` (GUIDE PENGISIAN SURAT REKOM.docx, con
 - **Mahasiswa**: tidak membuat surat apa pun, hanya tombol Unduh (langsung mengunduh PDF).
 - **Database**: tidak ada tabel atau kolom baru (tetap sama dengan SDD v2). Nomor surat memakai `surat.nomor_surat`, TTD tidak disimpan di database.
 
+## Revisi web (sisi mahasiswa, admin, dosen)
+
+- **Template laporan akhir** (tab Dokumen Magang, mahasiswa): tombol unduh sudah ada. Sementara berkas contoh `Laporan Magang - Luqman Aprianto Darmawan.pdf` dipakai sebagai `server/templates/Template_Laporan_Akhir.pdf`. Kalau template kosongan `.docx` sudah ada, taruh dengan nama `Template_Laporan_Akhir.docx` (diutamakan).
+- **Nomor telepon mahasiswa unik**: dicek saat daftar (`GET /api/publik/telepon/:no`), saat simpan data diri (409), dan lewat indeks `mahasiswa_no_telepon_unik`. **Indeks belum terbentuk di Supabase karena ada 2 pasang nomor kembar** (Zaldi/Zalls dan Raden Arya/Judi). Ganti salah satu nomor di tiap pasang, lalu jalankan `npm run db:siapkan` lagi.
+- **NPM**: 3 angka awal harus kode Sistem Informasi (101, 111, 121, 131, 141, 151, 161, 171, 181, 191), 2 angka angkatan tidak boleh lebih dari tahun ini. Ditolak sejak langkah 1 pendaftaran. Akun lama dengan NPM `21123123` tidak ikut diubah.
+- **Alamat**: divalidasi regex (10–200 karakter, memuat huruf, karakter lazim alamat), spasi ganda dirapikan.
+- **Riwayat magang**: tahun tidak boleh melebihi tahun ini. Riwayat hanya menyimpan tahun (SDD), jadi bulan di depan hari ini tidak bisa dibedakan dalam tahun berjalan.
+- **Satu akun satu perangkat** (semua peran): `users.sesi_id` (kolom baru) menyimpan sesi yang memegang akun, `users.last_login` dipakai sebagai aktivitas terakhir (denyut klien tiap 2 menit). Perangkat kedua ditolak dengan pesan di halaman masuk. Keluar melepas akun; peramban ditutup tanpa keluar = akun bebas setelah 5 menit.
+- **Verifikasi email dosen**: akun dibuat belum terkonfirmasi dan Supabase mengirim tautan ke email dosen. Admin melihat status "Email belum diverifikasi" dan tombol Kirim Ulang Verifikasi. Supabase perlu SMTP yang jalan (SMTP bawaan sangat dibatasi). Untuk produksi isi `APP_URL` di `server/.env`.
+- **Notifikasi**: klik "Lihat Detail" menghilangkan titik merah item itu (disimpan di peramban); "Tandai Semua Dibaca" tetap lewat server.
+- **Lain-lain**: panduan sekarang menyorot menu Dashboard (bukan logo), tombol "Lihat data diri" di pemeriksaan rekomendasi jadi tombol ungu gelap, alamat di profil dipindah ke bawah IPK/semester/telepon dalam kotak lebih besar.
+
 Acuan aturan bisnis: `docs/` (Definisi, SRS, SDD). Peta folder dan cara jalanin: README.

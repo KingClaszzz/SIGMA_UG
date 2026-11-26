@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { Galat, catat, iso, kirimPdf, q, riwayatDari, salah, satu } from '../lib.js';
 import {
   BATAS_KIRIM_MINGGUAN, BATAS_MAGANG, DOKUMEN_AKHIR, DOKUMEN_REKOMENDASI, cekKelayakan, hariIni, jadwal, nomorTampil,
-  validasiIdentitas, validasiPdf, validasiPengajuan, validasiPenerimaan, validasiProfil, validasiRiwayat, pernahPerbaikan,
+  validasiIdentitas, validasiPdf, validasiPengajuan, validasiPenerimaan, validasiProfil, validasiRiwayat, pernahPerbaikan, rapikanAlamat,
 } from '../rules.js';
 
-const TEMPLATE_LAPORAN = fileURLToPath(new URL('../templates/Template_Laporan_Akhir.docx', import.meta.url));
+// Template laporan akhir dari prodi (.docx). Sementara memakai berkas contoh Laporan Magang (.pdf) sampai template kosongan tersedia.
+const jalurTemplate = (nama) => fileURLToPath(new URL(`../templates/${nama}`, import.meta.url));
+const templateLaporan = () => ['Template_Laporan_Akhir.docx', 'Template_Laporan_Akhir.pdf'].find((n) => fs.existsSync(jalurTemplate(n)));
 const TEMPLATE_SILABUS = fileURLToPath(new URL('../templates/Form_Magang_Mitra_2026.docx', import.meta.url));
 const pdf = express.raw({ type: 'application/pdf', limit: '2mb' });
 
@@ -79,9 +81,10 @@ export default function routerMahasiswa({ db, storage }) {
     // Identitas hanya diisi sekali; email berasal dari akun login, bukan dari formulir.
     if (!ada) salah(validasiIdentitas({ nama: b.nama, npm: b.npm, email: user.email }));
     salah(validasiProfil(b));
+    if (await satu(db, 'SELECT 1 FROM mahasiswa WHERE no_telepon = $1 AND id_user <> $2', [b.no_telepon, user.id_user])) throw new Galat(409, 'Nomor telepon ini sudah dipakai akun lain.');
     try {
       await db.transaksi(async (c) => {
-        const nilai = [Number(b.ipk), Number(b.semester), b.no_telepon, !!b.status_aktif, !!b.status_cuti, !!b.ada_nilai_e, b.alamat.trim()];
+        const nilai = [Number(b.ipk), Number(b.semester), b.no_telepon, !!b.status_aktif, !!b.status_cuti, !!b.ada_nilai_e, rapikanAlamat(b.alamat)];
         if (ada) {
           // Data berubah → Admin Prodi perlu memverifikasi ulang (FR-16).
           await c.query(`UPDATE mahasiswa SET ipk=$1, semester=$2, no_telepon=$3, status_aktif=$4, status_cuti=$5, ada_nilai_e=$6, alamat=$7,
@@ -94,7 +97,7 @@ export default function routerMahasiswa({ db, storage }) {
         }
       });
     } catch (e) {
-      if (e.code === '23505') throw new Galat(409, 'NPM ini sudah terdaftar pada akun lain. Jika ini NPM Anda, hubungi Admin Prodi.');
+      if (e.code === '23505') throw new Galat(409, /no_telepon/.test(`${e.detail} ${e.constraint}`) ? 'Nomor telepon ini sudah dipakai akun lain.' : 'NPM ini sudah terdaftar pada akun lain. Jika ini NPM Anda, hubungi Admin Prodi.');
       throw e;
     }
     res.json(await tampilProfil(db, user));
@@ -426,7 +429,8 @@ export default function routerMahasiswa({ db, storage }) {
     const selesai = wajib.every((x) => x.status === 'disetujui');
     return {
       ada_magang: true,
-      template_laporan_tersedia: fs.existsSync(TEMPLATE_LAPORAN),
+      template_laporan_tersedia: !!templateLaporan(),
+      template_laporan_nama: templateLaporan() ?? null,
       id_konversi: mg.id_konversi,
       perusahaan: mg.nama_perusahaan,
       dosen_pendamping: dosen?.nama ?? null,
@@ -496,8 +500,9 @@ export default function routerMahasiswa({ db, storage }) {
   });
 
   r.get('/dokumen-magang/laporan_akhir/template', (_req, res) => {
-    if (!fs.existsSync(TEMPLATE_LAPORAN)) throw new Galat(404, 'Template laporan akhir belum disediakan prodi.');
-    res.download(TEMPLATE_LAPORAN);
+    const nama = templateLaporan();
+    if (!nama) throw new Galat(404, 'Template laporan akhir belum disediakan prodi.');
+    res.download(jalurTemplate(nama), nama);
   });
 
   // ---------- notifikasi (lonceng) ----------

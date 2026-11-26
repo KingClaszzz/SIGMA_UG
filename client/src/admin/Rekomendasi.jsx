@@ -219,7 +219,7 @@ export function DetailRekomendasiAdmin() {
             </dl>
             <div className="baris-kecil">
               <Badge nilai={m.status_verifikasi} />
-              <Link to={`/admin/mahasiswa/${m.id}`} className="aksi-kecil">{terverifikasi ? 'Lihat data diri' : 'Verifikasi data diri'}</Link>
+              <Link to={`/admin/mahasiswa/${m.id}`} className="btn keras kecil">{terverifikasi ? 'Lihat data diri' : 'Verifikasi data diri'}</Link>
             </div>
           </section>
 

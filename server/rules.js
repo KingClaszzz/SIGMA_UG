@@ -47,10 +47,25 @@ const teks = (v, maks) => {
   return t.length > 0 && t.length <= maks;
 };
 
+// NPM = 3 angka kode prodi + 2 angka angkatan (tahun masuk) + 3 angka urut mahasiswa. SIGMA UG khusus Program Studi Sistem Informasi.
+export const NPM_PRODI = ['101', '111', '121', '131', '141', '151', '161', '171', '181', '191'];
+export function validasiNpm(npm) {
+  const n = String(npm ?? '');
+  if (!/^\d{8}$/.test(n)) return 'NPM harus 8 digit angka.';
+  if (!NPM_PRODI.includes(n.slice(0, 3))) return `NPM tidak sesuai. Pendaftaran khusus Program Studi Sistem Informasi (3 angka awal NPM: ${NPM_PRODI.join(', ')}).`;
+  if (Number(n.slice(3, 5)) > new Date().getFullYear() % 100) return 'NPM tidak valid: angkatan (2 angka setelah kode prodi) melebihi tahun ini.';
+  return null;
+}
+
+// Alamat tercetak di surat rekomendasi: 10–200 karakter, memuat huruf, hanya karakter yang lazim pada alamat. Spasi ganda dirapikan.
+export const REGEX_ALAMAT = /^(?=.*[A-Za-z]{3})[A-Za-z0-9 .,/#()'’:&-]{10,200}$/;
+export const rapikanAlamat = (a) => String(a ?? '').trim().replace(/\s+/g, ' ');
+
 // Setiap validator mengembalikan pesan kesalahan pertama, atau null bila sah.
 export function validasiIdentitas(p) {
   if (!teks(p.nama, 60)) return 'Nama wajib diisi (maksimal 60 karakter).';
-  if (!/^\d{8}$/.test(p.npm ?? '')) return 'NPM harus 8 digit angka.';
+  const galatNpm = validasiNpm(p.npm);
+  if (galatNpm) return galatNpm;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email ?? '') || p.email.length > 100) return 'Alamat email tidak valid.';
   return null;
 }
@@ -61,13 +76,15 @@ export function validasiProfil(p) {
   if (p.ipk === '' || p.ipk == null || !(ipk >= 0 && ipk <= 4)) return 'IPK harus berada pada rentang 0 sampai 4.';
   if (![5, 6, 7].includes(Number(p.semester))) return 'Semester harus 5, 6, atau 7.';
   if (!/^08\d{8,11}$/.test(p.no_telepon ?? '')) return 'Nomor telepon harus 10–13 digit dan diawali 08.';
-  if (!teks(p.alamat, 200) || p.alamat.trim().length < 10) return 'Alamat wajib diisi (10–200 karakter).';
+  if (!REGEX_ALAMAT.test(rapikanAlamat(p.alamat))) return 'Alamat tidak valid: 10–200 karakter, memuat huruf, dan hanya berisi huruf, angka, spasi, serta . , / - # ( ) : &.';
   return null;
 }
 
 export function validasiRiwayat(r) {
   if (!teks(r.nama_perusahaan, 150)) return 'Nama perusahaan wajib diisi (maksimal 150 karakter).';
-  if (!Number.isInteger(Number(r.tahun)) || Number(r.tahun) < 2000 || Number(r.tahun) > 2100) return 'Tahun magang tidak valid.';
+  if (!Number.isInteger(Number(r.tahun)) || Number(r.tahun) < 2000) return 'Tahun magang tidak valid.';
+  // Riwayat hanya untuk magang yang sudah berlangsung, jadi tahun tidak boleh di depan hari ini.
+  if (Number(r.tahun) > new Date().getFullYear()) return 'Tahun magang tidak boleh melebihi tahun ini. Riwayat hanya untuk magang yang sudah berlangsung.';
   return null;
 }
 

@@ -9,6 +9,9 @@ const storage = storageUji();
 const akun = {
   'token-a': { auth_id: '11111111-1111-4111-8111-111111111111', email: 'a@uji.test', nama: 'Akun A' },
   'token-b': { auth_id: '22222222-2222-4222-8222-222222222222', email: 'b@uji.test', nama: 'Akun B' },
+  // akun yang sama dari dua perangkat (dua sesi Supabase berbeda)
+  'token-c1': { auth_id: '33333333-3333-4333-8333-333333333333', email: 'c@uji.test', nama: 'Akun C', sesi: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' },
+  'token-c2': { auth_id: '33333333-3333-4333-8333-333333333333', email: 'c@uji.test', nama: 'Akun C', sesi: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' },
 };
 const server = buatApp({ db, storage, verifikasi: async (t) => akun[t] ?? null }).listen(0);
 test.after(() => server.close());
@@ -51,6 +54,12 @@ test('alur mahasiswa dari data diri sampai dokumen akhir', async () => {
   assert.deepEqual([dibuat.data.npm, dibuat.data.email, dibuat.data.nama], ['11123000', 'a@uji.test', 'Uji Coba']);
   assert.equal((await A('PUT', '/me', { body: { ...akademik, npm: '99999999' } })).data.npm, '11123000'); // identitas tidak berubah
   assert.equal((await B('PUT', '/me', { body: { ...akademik, nama: 'Lain', npm: '11123000' } })).status, 409); // NPM unik
+  assert.match((await B('PUT', '/me', { body: { ...akademik, nama: 'Lain', npm: '11123001' } })).data.error, /telepon/); // nomor telepon unik
+  const lain = { ...akademik, no_telepon: '081111111111', nama: 'Lain' };
+  assert.match((await B('PUT', '/me', { body: { ...lain, npm: '19923001' } })).data.error, /Sistem Informasi/); // kode prodi bukan SI
+  assert.equal((await A('PUT', '/me', { body: { ...akademik, alamat: '!!!!!!!!!!!!' } })).status, 400); // alamat: karakter tidak lazim
+  assert.equal((await A('PUT', '/me', { body: { ...akademik, alamat: '1234567890' } })).status, 400); // alamat: harus memuat huruf
+  assert.equal((await A('POST', '/riwayat', { body: { nama_perusahaan: 'PT Masa Depan', tahun: new Date().getFullYear() + 1 } })).status, 400); // riwayat tidak boleh di depan hari ini
 
   // surat rekomendasi
   assert.equal((await A('POST', '/rekomendasi', { body: form })).status, 409); // periode belum ada
@@ -70,7 +79,7 @@ test('alur mahasiswa dari data diri sampai dokumen akhir', async () => {
   assert.deepEqual((await A('GET', `/rekomendasi/${p.id}`)).data.riwayat.map((x) => x.status), ['draft', 'diajukan']);
 
   // mahasiswa lain tidak bisa melihat pengajuan ini
-  await db.query("INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e) SELECT id_user, '11129999', 3.2, 7, '081200000000', true, false, false FROM users WHERE email = 'b@uji.test'");
+  await db.query("INSERT INTO mahasiswa (id_user, npm, ipk, semester, no_telepon, status_aktif, status_cuti, ada_nilai_e) SELECT id_user, '11129999', 3.2, 7, '08129999999', true, false, false FROM users WHERE email = 'b@uji.test'");
   assert.equal((await B('GET', `/rekomendasi/${p.id}`)).status, 404);
 
   // konversi hanya setelah surat terbit dan periode konversi dibuka
@@ -136,12 +145,26 @@ test('anti-spam: maksimal 3 kali kirim surat rekomendasi per 7 hari, pengajuan d
 });
 
 test('logbook: unggah PDF opsional; notifikasi mahasiswa', async () => {
-  assert.equal((await A('GET', '/dokumen-magang')).data.template_laporan_tersedia, false);
-  assert.equal((await A('GET', '/dokumen-magang/laporan_akhir/template')).status, 404);
+  const dok = (await A('GET', '/dokumen-magang')).data;
+  assert.deepEqual([dok.template_laporan_tersedia, dok.template_laporan_nama], [true, 'Template_Laporan_Akhir.pdf']); // sementara berkas contoh Laporan Magang
+  assert.equal((await A('GET', '/dokumen-magang/laporan_akhir/template')).tipe, 'application/pdf');
 
   await db.query("INSERT INTO riwayat_status (jenis_objek, id_objek, status_lama, status_baru) SELECT 'pengajuan_konversi', max(id_konversi), 'diproses', 'diterbitkan' FROM pengajuan_konversi");
   const n = (await A('GET', '/notifikasi')).data;
   assert.ok(n.belum_dibaca > 0 && n.item.some((x) => x.judul === 'Konversi SKS disetujui'));
   await A('POST', '/notifikasi/baca');
   assert.equal((await A('GET', '/notifikasi')).data.belum_dibaca, 0);
+});
+
+test('satu akun satu perangkat: perangkat kedua ditolak sampai yang pertama keluar atau diam', async () => {
+  const C = (t) => req(t, 'GET', '/saya');
+  assert.equal((await C('token-c1')).status, 200);
+  const ditolak = await C('token-c2');
+  assert.deepEqual([ditolak.status, ditolak.data.kode], [409, 'SESI_LAIN']);
+  assert.equal((await C('token-c1')).status, 200); // pemegang akun tetap bisa
+  assert.equal((await req('token-c1', 'POST', '/keluar')).status, 200);
+  assert.equal((await C('token-c2')).status, 200); // akun dilepas saat keluar
+  await db.query("UPDATE users SET last_login = now() - interval '10 minutes' WHERE email = 'c@uji.test'");
+  assert.equal((await C('token-c1')).status, 200); // pemegang sudah diam: diambil alih
+  assert.equal((await C('token-c2')).data.kode, 'SESI_LAIN');
 });

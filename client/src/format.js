@@ -41,3 +41,10 @@ export function waktuRelatif(iso) {
   const hari = Math.floor(menit / 1440);
   return hari === 1 ? 'Kemarin' : hari < 7 ? `${hari} hari lalu` : tanggalAngka(iso);
 }
+
+// Aturan isian yang sama dengan server (rules.js); server tetap memvalidasi ulang.
+export const POLA_NPM = '(101|111|121|131|141|151|161|171|181|191)[0-9]{5}';
+export const PESAN_NPM = 'NPM 8 digit: 3 angka awal kode Sistem Informasi (101, 111, 121, 131, 141, 151, 161, 171, 181, 191), 2 angka angkatan, 3 angka urut.';
+export const REGEX_ALAMAT = /^(?=.*[A-Za-z]{3})[A-Za-z0-9 .,/#()'’:&-]{10,200}$/;
+export const rapikanAlamat = (a) => String(a ?? '').trim().replace(/\s+/g, ' ');
+export const PESAN_ALAMAT = 'Alamat tidak valid: 10–200 karakter, memuat huruf, dan hanya berisi huruf, angka, spasi, serta . , / - # ( ) : &.';

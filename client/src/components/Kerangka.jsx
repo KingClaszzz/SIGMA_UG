@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { icon, logo } from '../assets';
+import { api } from '../api';
 import { keluar, useKeluarOtomatis } from '../auth/sesi';
 import Maskot from './Maskot.jsx';
 import './shell.css';
@@ -60,6 +61,11 @@ function UserMenu({ nama, sub, profil, avatar }) {
 // maskot: pose maskot di ruang kosong sidebar ('jas' | 'laptop' | 'papan', opsional); avatar: inisial bulat di samping nama (opsional); lonceng: elemen notifikasi (opsional, mis. admin/Notifikasi.jsx).
 export default function Kerangka({ menu, beranda, chip, nama, sub, profil, avatar, lonceng, maskot, children }) {
   useKeluarOtomatis(30); // NFR-02
+  // Denyut: selama halaman terbuka, server tahu perangkat ini masih memegang akun (perangkat lain ditolak). Tutup tanpa keluar = akun bebas setelah 5 menit.
+  useEffect(() => {
+    const id = setInterval(() => api('/saya').catch(() => {}), 120_000);
+    return () => clearInterval(id);
+  }, []);
   const navigate = useNavigate();
   return (
     <div className="shell">

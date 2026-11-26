@@ -27,7 +27,7 @@ export default function Tour({ email }) {
   const langkah = i === null ? null : LANGKAH[i];
   useEffect(() => {
     if (!langkah?.to) return undefined;
-    const el = document.querySelector(`.aside a[href="${langkah.to}"]`);
+    const el = document.querySelector(`.aside a.nav-link[href="${langkah.to}"]`);
     el?.classList.add('tur-sorot');
     return () => el?.classList.remove('tur-sorot');
   }, [langkah]);

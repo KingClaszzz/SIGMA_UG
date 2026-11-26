@@ -1,7 +1,8 @@
 export class Galat extends Error {
-  constructor(status, pesan) {
+  constructor(status, pesan, kode) {
     super(pesan);
     this.status = status;
+    this.kode = kode; // opsional: dibaca klien (mis. SESI_LAIN)
   }
 }
 

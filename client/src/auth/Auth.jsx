@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { icon, logo } from '../assets';
 import { api } from '../api';
+import { PESAN_ALAMAT, PESAN_NPM, POLA_NPM, REGEX_ALAMAT, rapikanAlamat } from '../format';
 import { supabase, supabaseSiap } from '../supabase';
 import { arahDari, pesanAuth, usePeran, useSesi } from './sesi';
 import './auth.css';
@@ -64,6 +65,9 @@ function Sandi({ label, tambahan, ...props }) {
   );
 }
 
+// Galat yang pesannya sudah ditulis untuk pengguna (bukan galat Supabase yang perlu diterjemahkan).
+const galatForm = (pesan) => Object.assign(new Error(pesan), { tampil: true });
+
 function useKirim(fn) {
   const [galat, setGalat] = useState(null);
   const [sibuk, setSibuk] = useState(false);
@@ -74,7 +78,7 @@ function useKirim(fn) {
     try {
       await fn(new FormData(e.target));
     } catch (err) {
-      setGalat(pesanAuth(err));
+      setGalat(err.tampil ? err.message : pesanAuth(err));
     } finally {
       setSibuk(false);
     }
@@ -104,6 +108,7 @@ export function Masuk() {
 
   return (
     <Tata judul="Selamat datang kembali" kaki={<>Belum punya akun? <Link to="/daftar">Daftar</Link></>}>
+      {params.get('sesi') === 'lain' && <p className="pesan galat" role="alert">Akun ini sedang digunakan di perangkat lain. Silakan keluar (logout) dari perangkat tersebut terlebih dahulu, lalu masuk kembali di sini.</p>}
       {params.get('sesi') === 'habis' && <p className="banner-info" role="status">Sesi berakhir karena tidak ada aktivitas selama 30 menit. Silakan masuk kembali.</p>}
       <form onSubmit={kirim} className="auth-form">
         <Kolom label="Email" name="email" type="email" autoComplete="email" required />
@@ -130,10 +135,14 @@ export function Daftar() {
   const [galatLokal, setGalatLokal] = useState(null);
   const { galat, sibuk, kirim } = useKirim(async (f) => {
     const data = { ...isi, ...Object.fromEntries(f) };
+    const alamat = rapikanAlamat(data.alamat);
+    if (!REGEX_ALAMAT.test(alamat)) throw galatForm(PESAN_ALAMAT);
+    const { tersedia } = await api(`/publik/telepon/${data.no_telepon.trim()}`).catch((e) => { throw galatForm(e.message); });
+    if (!tersedia) throw galatForm('Nomor telepon ini sudah dipakai akun lain.');
     const { data: hasil, error } = await supabase.auth.signUp({
       email: data.email.trim(),
       password: data.password,
-      options: { data: { nama: data.nama.trim(), npm: data.npm.trim(), semester: data.semester, ipk: data.ipk, no_telepon: data.no_telepon, alamat: data.alamat.trim() }, emailRedirectTo: `${window.location.origin}/masuk` },
+      options: { data: { nama: data.nama.trim(), npm: data.npm.trim(), semester: data.semester, ipk: data.ipk, no_telepon: data.no_telepon.trim(), alamat }, emailRedirectTo: `${window.location.origin}/masuk` },
     });
     if (error) throw error;
     if (hasil.session) navigate(arahPeran, { replace: true });
@@ -167,7 +176,7 @@ export function Daftar() {
       {langkah === 1 ? (
         <form onSubmit={lanjut} className="auth-form" key="l1">
           <Kolom label="Nama lengkap" name="nama" autoComplete="name" required maxLength={60} defaultValue={isi.nama} placeholder="Masukkan nama lengkap Anda" />
-          <Kolom label="NPM" name="npm" required inputMode="numeric" pattern="[0-9]{8}" title="8 digit angka" defaultValue={isi.npm} placeholder="Masukkan NPM Anda" />
+          <Kolom label="NPM" name="npm" required inputMode="numeric" pattern={POLA_NPM} title={PESAN_NPM} defaultValue={isi.npm} placeholder="Masukkan NPM Anda" />
           <Kolom label="Email" name="email" type="email" autoComplete="email" required defaultValue={isi.email} placeholder="Masukkan email Anda" />
           <Sandi label="Kata sandi (minimal 8 karakter)" name="password" autoComplete="new-password" minLength={8} required defaultValue={isi.password} placeholder="Masukkan kata sandi Anda" />
           <Sandi label="Konfirmasi kata sandi" name="ulang" autoComplete="new-password" minLength={8} required defaultValue={isi.ulang} placeholder="Ulangi kata sandi Anda" />
@@ -181,7 +190,7 @@ export function Daftar() {
           <label>Semester<select name="semester" required defaultValue={isi.semester ?? ''}><option value="" disabled>Pilih semester</option>{[5, 6, 7].map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
           <Kolom label="IPK terakhir" name="ipk" type="number" min="0" max="4" step="0.01" required defaultValue={isi.ipk} placeholder="Masukkan IPK terakhir Anda" />
           <Kolom label="No. telepon" name="no_telepon" type="tel" required pattern="08[0-9]{8,11}" title="10–13 digit, diawali 08" defaultValue={isi.no_telepon} placeholder="Masukkan nomor telepon Anda" />
-          <Kolom label="Alamat" name="alamat" required minLength={10} maxLength={200} defaultValue={isi.alamat} placeholder="Masukkan alamat rumah Anda" />
+          <Kolom label="Alamat" name="alamat" required minLength={10} maxLength={200} title={PESAN_ALAMAT} defaultValue={isi.alamat} placeholder="Masukkan alamat rumah Anda" />
           {galat && <p className="pesan galat" role="alert">{galat}</p>}
           <button className="btn isi auth-tombol" type="submit" disabled={sibuk || !supabaseSiap}>{sibuk ? 'Memproses…' : 'Daftar'}</button>
           <button className="btn garis auth-tombol" type="button" onClick={() => setLangkah(1)}>← Kembali</button>

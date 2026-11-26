@@ -33,7 +33,7 @@ function TambahDosen({ onTutup, muat }) {
   const isi = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <Dialog judul="Tambah Akun Dosen" onTutup={onTutup} lebar={520}>
-      <form className="aksi-form" style={{ marginTop: 0 }} onSubmit={async (e) => { e.preventDefault(); if (await jalan(() => api('/admin/akun/dosen', { method: 'POST', body: f }), { judul: 'Akun dosen dibuat', teks: 'Sampaikan kata sandi awal kepada dosen.' })) onTutup(); }}>
+      <form className="aksi-form" style={{ marginTop: 0 }} onSubmit={async (e) => { e.preventDefault(); if (await jalan(() => api('/admin/akun/dosen', { method: 'POST', body: f }), { judul: 'Akun dosen dibuat', teks: 'Tautan verifikasi dikirim ke email dosen. Sampaikan juga kata sandi awal.' })) onTutup(); }}>
         <div className="grid-form">
           <label className="penuh">Nama Lengkap *<input required maxLength={60} value={f.nama} onChange={isi('nama')} /></label>
           <label>NIDN *<input required pattern="[0-9A-Za-z]{5,20}" title="5–20 huruf atau angka" value={f.nidn} onChange={isi('nidn')} /></label>
@@ -41,7 +41,7 @@ function TambahDosen({ onTutup, muat }) {
           <label className="penuh">Email *<input required type="email" maxLength={100} value={f.email} onChange={isi('email')} /></label>
           <label className="penuh">Kata Sandi Awal *<input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={f.password} onChange={isi('password')} /></label>
         </div>
-        <p className="catatan-kecil" style={{ marginTop: 0 }}>Sampaikan kata sandi awal ini kepada dosen. Dosen bisa menggantinya lewat “Lupa kata sandi”.</p>
+        <p className="catatan-kecil" style={{ marginTop: 0 }}>Tautan verifikasi dikirim ke email di atas; dosen baru bisa masuk setelah mengkliknya. Sampaikan kata sandi awal ini kepada dosen, yang bisa menggantinya lewat “Lupa kata sandi”.</p>
         {galat && <p className="pesan galat" role="alert">{galat}</p>}
         <div className="dialog-aksi">
           <button className="btn garis" type="button" onClick={onTutup}>Batal</button>
@@ -49,6 +49,16 @@ function TambahDosen({ onTutup, muat }) {
         </div>
       </form>
     </Dialog>
+  );
+}
+
+function KirimUlangVerifikasi({ d, muat }) {
+  const { sibuk, galat, jalan } = useAksi(muat);
+  return (
+    <>
+      <button className="btn garis kecil" disabled={sibuk} onClick={() => jalan(() => api(`/admin/akun/dosen/${d.id_user}/verifikasi-ulang`, { method: 'POST' }), { judul: 'Email verifikasi dikirim', teks: `Tautan dikirim ke ${d.email}.` })}>{sibuk ? 'Mengirim…' : 'Kirim Ulang Verifikasi'}</button>
+      {galat && <p className="pesan galat" role="alert" style={{ marginTop: 6 }}>{galat}</p>}
+    </>
   );
 }
 
@@ -74,8 +84,8 @@ function TabDosen() {
                 <tr key={d.id}>
                   <td>{d.nama}</td><td>{d.nidn}</td><td>{d.email}</td>
                   <td>{d.bimbingan.length === 0 ? '–' : d.bimbingan.join(', ')}</td>
-                  <td><StatusAkun aktif={d.is_aktif} /></td>
-                  <td><button className={`btn garis kecil${d.is_aktif ? ' bahaya' : ''}`} onClick={() => setUbah(d)}>{d.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}</button></td>
+                  <td><StatusAkun aktif={d.is_aktif} />{!d.email_terverifikasi && <span className="badge kuning" style={{ marginLeft: 6 }}>Email belum diverifikasi</span>}</td>
+                  <td><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className={`btn garis kecil${d.is_aktif ? ' bahaya' : ''}`} onClick={() => setUbah(d)}>{d.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>{!d.email_terverifikasi && <KirimUlangVerifikasi d={d} muat={muat} />}</div></td>
                 </tr>
               ))}
             </tbody>

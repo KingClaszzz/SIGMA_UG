@@ -17,3 +17,6 @@
   .grid-form.kolom-4 { grid-template-columns: 1fr 1fr; }
   .tambah { grid-template-columns: 1fr; }
 }
+
+.alamat-penuh { display: block; margin-top: 16px; }
+.alamat-penuh textarea { width: 100%; min-height: 110px; margin-top: 6px; resize: vertical; font: inherit; }
