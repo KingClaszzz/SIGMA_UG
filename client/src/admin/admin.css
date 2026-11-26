@@ -49,6 +49,7 @@
 .banner-kecil { margin-top: 4px; font-size: 14px; }
 
 .ringkas-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.ringkas-grid.empat { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .ringkas { display: flex; align-items: center; gap: 14px; padding: 24px; border: 1px solid var(--violet-89); border-radius: 18px; background: #fff; transition: transform 0.2s var(--ease), box-shadow 0.2s, border-color 0.2s; }
 .ringkas:hover { transform: translateY(-2px); border-color: var(--violet-45); box-shadow: 0 10px 22px rgba(58, 35, 85, 0.09); }
 .ringkas-ikon { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 14px; background: var(--grey-94); }
@@ -93,12 +94,21 @@
 
 @media (max-width: 1100px) {
   .dua-kolom-admin, .dua-kolom-admin.rata, .tiga-kartu { grid-template-columns: 1fr; }
-  .ringkas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ringkas-grid, .ringkas-grid.empat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid-form.empat { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
-  .ringkas-grid, .kv-polos { grid-template-columns: 1fr; }
+  .ringkas-grid, .ringkas-grid.empat, .kv-polos { grid-template-columns: 1fr; }
   .kv-polos .lebar { grid-column: auto; }
+  .ringkas { padding: 16px; }
+  .alat-tabel > * { flex: 1 1 100%; min-width: 0; max-width: none; }
+  .tab-garis { overflow-x: auto; }
+  .tab-garis button { white-space: nowrap; }
+  .panel-pratinjau iframe { height: 360px; }
+  .dialog { padding: 20px 18px; }
+}
+@media (max-width: 600px) {
+  .notif-menu { position: fixed; top: 64px; left: 12px; right: 12px; width: auto; max-width: none; }
 }
 
 /* ---- Tambahan setelah koreksi desain admin ---- */

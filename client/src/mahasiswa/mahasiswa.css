@@ -15,7 +15,7 @@
 .hitung-mundur .angka { margin: 4px 0; font-size: 40px; font-weight: 700; color: var(--orange-62); }
 .hitung-mundur .gelombang { padding: 12px 18px; border-radius: 10px; background: var(--orange-62); color: var(--violet-24); font-size: 12px; }
 .hitung-mundur .gelombang strong { display: block; font-size: 15px; }
-.baris-dok { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--grey-92); border-radius: 10px; background: #f8f6fd; font-size: 13px; font-weight: 600; }
+.baris-dok { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 14px; border: 1px solid var(--grey-92); border-radius: 10px; background: #f8f6fd; font-size: 13px; font-weight: 600; }
 .baris-dok + .baris-dok { margin-top: 10px; }
 .tabel-hasil .total td { font-weight: 700; }
 .kartu-pilih { display: grid; gap: 10px; margin-top: 12px; }
@@ -45,6 +45,9 @@
 }
 @media (max-width: 600px) {
   .ringkas-grid { grid-template-columns: 1fr; }
+  .hitung-mundur { padding: 20px 18px; }
+  .hitung-mundur .angka { font-size: 32px; }
+  .modal { padding: 24px 18px; }
 }
 
 .kv-kartu { padding: 16px 18px; border-radius: 14px; }

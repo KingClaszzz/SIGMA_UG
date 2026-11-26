@@ -98,7 +98,7 @@ function Ringkasan({ data }) {
         <div className="kartu kv-kartu"><dt>Dosen pendamping</dt><dd>{data.dosen_pendamping ?? 'Belum ditetapkan'}</dd></div>
         <div className="kartu kv-kartu"><dt>Periode magang</dt><dd>{rentang(data.tgl_mulai, data.tgl_selesai)}</dd></div>
       </dl>
-      <div className="dua-kolom" style={{ gridTemplateColumns: 'minmax(0,1.6fr) minmax(0,1fr)' }}>
+      <div className="dua-kolom berat-kiri">
         <section className="kartu masuk">
           <div className="kartu-kepala"><h2>Progres Pengumpulan Dokumen</h2><span className="stat-label">{data.wajib_disetujui} dari {data.wajib_total} dokumen wajib disetujui</span></div>
           <div className="progres" role="progressbar" aria-valuenow={data.wajib_disetujui} aria-valuemax={data.wajib_total}><span style={{ width: `${(data.wajib_disetujui / data.wajib_total) * 100}%` }} /></div>
