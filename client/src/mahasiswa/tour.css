@@ -10,5 +10,5 @@
 .aside a.tur-sorot, .aside .nav-link.tur-sorot { position: relative; z-index: 91; background: #fff; color: var(--violet-24); box-shadow: 0 0 0 3px #f0b849, 0 0 18px rgba(240, 184, 73, 0.6); animation: tur-denyut 1.4s ease-in-out infinite; }
 @keyframes tur-masuk { from { opacity: 0; transform: translateY(16px); } }
 @keyframes tur-denyut { 50% { box-shadow: 0 0 0 5px rgba(240, 184, 73, 0.7), 0 0 22px rgba(240, 184, 73, 0.4); } }
-@media (max-width: 900px) { .tur { left: 12px; right: 12px; bottom: 72px; width: auto; } }
+@media (max-width: 900px) { .tur { left: 12px; right: 12px; bottom: 16px; width: auto; } }
 @media (prefers-reduced-motion: reduce) { .tur, .aside a.tur-sorot { animation: none; } }
