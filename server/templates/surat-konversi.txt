@@ -1,3 +1,5 @@
+@profil konversi
+
 @kop
 UNIVERSITAS GUNADARMA
 SK. No.92/DIKTI/Kep/1996
@@ -11,62 +13,89 @@ PENETAPAN RENCANA PENGAKUAN SATUAN KREDIT SEMESTER PEMBELAJARAN
 MAGANG MANDIRI {{tahun_akademik}}
 PROGRAM STUDI SISTEM INFORMASI
 
+@jarak 10.2
+
 Ketua Program Studi Sistem Informasi Universitas Gunadarma, berdasarkan Peraturan Menteri Pendidikan Tinggi, Sains, dan Teknologi Nomor 39 Tahun 2025 tentang Penjaminan Mutu Pendidikan Tinggi dan Peraturan Akademik Universitas Gunadarma, setelah meninjau kegiatan Magang Mandiri sebagai bentuk pembelajaran di luar program studi yang diikuti oleh mahasiswa berikut:
 
-@baris
-Nama      : {{nama}}
-NPM       : {{npm}}
-Angkatan  : {{angkatan}}
-Kegiatan  : {{kegiatan}}
+@jarak 3.9
 
-dengan ini menetapkan rencana pengakuan satuan kredit semester pembelajaran Magang Mandiri {{tahun_akademik}} sebanyak {{total_sks}} SKS, untuk mata kuliah sebagaimana tercantum dalam lampiran.
-(terlampir daftar mata kuliah yang ditetapkan untuk pengakuan satuan kredit semester)
+@baris 76 186.1 201.1
+Nama : {{nama}}
+NPM : {{npm}}
+Angkatan : {{angkatan}}
+Kegiatan : {{kegiatan}}
+
+@jarak 4.8
+
+dengan ini **menetapkan** rencana pengakuan satuan kredit semester pembelajaran Magang Mandiri {{tahun_akademik}} sebanyak **{{total_sks}} SKS**, untuk mata kuliah sebagaimana tercantum dalam lampiran.
+*(terlampir daftar mata kuliah yang ditetapkan untuk pengakuan satuan kredit semester)*
+
+@jarak 4
 
 Mata kuliah tersebut ditetapkan oleh Program Studi berdasarkan kesesuaian capaian pembelajaran mata kuliah dengan kegiatan yang diikuti mahasiswa. Penetapan ini dapat ditinjau kembali oleh Program Studi apabila posisi, durasi, atau mitra magang berubah.
 
+@jarak 4
+
 Pengakuan satuan kredit semester diberikan dengan ketentuan mahasiswa:
 
-@daftar
+@jarak 4
+
+@daftar 2
 1. Memenuhi dan menyelesaikan kewajiban SKS pada semester berjalan di Universitas Gunadarma, yang tidak termasuk dalam mata kuliah yang diakui melalui Magang Mandiri ini, sebagai salah satu prasyarat pemenuhan gelar sarjana di Universitas Gunadarma;
 2. Melaksanakan Magang Mandiri sesuai dengan rencana yang telah ditetapkan serta menyerahkan laporan penyelesaian Magang Mandiri kepada Program Studi, meliputi:
   a. Logbook kegiatan yang ditandatangani pembimbing lapangan dari mitra (sesuai format yang ditetapkan Program Studi);
   b. Bukti penyelesaian dan penilaian dari mitra magang (dapat berupa surat keterangan/sertifikat/karya hasil kegiatan);
 3. Mengikuti Ujian Capaian Pembelajaran untuk setiap mata kuliah yang ditetapkan dalam lampiran.
 
-Pernyataan mahasiswa: Saya telah membaca rencana pengakuan SKS yang ditetapkan oleh Program Studi di atas beserta lampirannya, dan menyatakan bersedia memenuhi seluruh ketentuannya.
+@jarak 4.6
 
-@dua-kolom
-Menetapkan, | Depok, {{tanggal_surat}}
-Ketua Program Studi Sistem Informasi | Menyatakan bersedia,
-~ | Mahasiswa peserta Magang Mandiri
-~
-~
-~
+**Pernyataan mahasiswa:** Saya telah membaca rencana pengakuan SKS yang ditetapkan oleh Program Studi di atas beserta lampirannya, dan menyatakan bersedia memenuhi seluruh ketentuannya.
+
+@jarak 4
+
+@dua-kolom 76 301.7
+ | Depok, {{tanggal_surat}}
+Menetapkan, | Menyatakan bersedia,
+Ketua Program Studi Sistem Informasi | Mahasiswa peserta Magang Mandiri
+
+@jarak 57.5
+
+@dua-kolom 76 301.7
 (Dr. Naeli Umniati, S.T., M.M.S.I.) | ({{nama}})
 
 @halaman
 
-@baris
-Lampiran
+**Lampiran**
+
+@jarak 6
 
 @judul
 DAFTAR MATA KULIAH YANG DITETAPKAN UNTUK PENGAKUAN SATUAN KREDIT
 SEMESTER PEMBELAJARAN MAGANG MANDIRI {{tahun_akademik}}
 PROGRAM STUDI SISTEM INFORMASI
 
-@baris
-Nama      : {{nama}}
-NPM       : {{npm}}
-Angkatan  : {{angkatan}}
+@jarak 10.2
+
+@baris 76 186.1 201.1
+Nama : {{nama}}
+NPM : {{npm}}
+Angkatan : {{angkatan}}
+
+@jarak 9.6
 
 @tabel-matkul
 
+@jarak 10.6
+
 Daftar mata kuliah di atas ditetapkan oleh Program Studi Sistem Informasi sebagai dasar pengakuan satuan kredit semester pembelajaran Magang Mandiri {{tahun_akademik}}. Nilai mata kuliah diberikan setelah mahasiswa menyerahkan laporan penyelesaian dan mengikuti Ujian Capaian Pembelajaran.
 
-@tengah
+@jarak 8
+
+@blok 322.1
 Depok, {{tanggal_surat}}
 Ketua Program Studi Sistem Informasi
-~
-~
-~
+
+@jarak 44.4
+
+@blok 322.1
 (Dr. Naeli Umniati, S.T., M.M.S.I.)

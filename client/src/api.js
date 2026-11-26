@@ -26,10 +26,13 @@ export async function api(path, { method = 'GET', body, berkas } = {}) {
 }
 
 // Berkas dilindungi token, jadi tidak bisa dibuka lewat <a href>: ambil dulu, lalu tampilkan di tab baru.
-export async function bukaBerkas(path) {
+// `body` (opsional) dikirim sebagai POST JSON, mis. pratinjau surat dengan isian admin.
+export async function bukaBerkas(path, body) {
   const tab = window.open('', '_blank'); // dibuka sekarang agar tidak diblokir pemblokir popup
   try {
-    const res = await fetch(`/api${path}`, { headers: await header() });
+    const res = await fetch(`/api${path}`, body === undefined
+      ? { headers: await header() }
+      : { method: 'POST', headers: { ...(await header()), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? 'Berkas tidak dapat dibuka.');
     const url = URL.createObjectURL(await res.blob());
     tab.location.href = url;

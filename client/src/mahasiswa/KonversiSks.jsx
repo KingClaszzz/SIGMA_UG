@@ -4,6 +4,7 @@ import TautanBerkas from '../components/Berkas.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { api, unduhBerkas, useApi } from '../api';
+import { beritahu } from '../components/Pemberitahuan.jsx';
 import Badge from '../components/Badge.jsx';
 import Berhasil from '../components/Berhasil.jsx';
 import Steps from '../components/Steps.jsx';
@@ -12,6 +13,10 @@ import Timeline from '../components/Timeline.jsx';
 import Upload from '../components/Upload.jsx';
 import { rentang, sisaHari, tanggalAngka, tanggalPanjang } from '../format';
 import './mahasiswa.css';
+
+// Surat sudah dibuat Admin Prodi; mahasiswa cukup mengunduh berkas PDF-nya.
+const unduhSurat = (path, nama) => unduhBerkas(path, nama).catch((e) => beritahu({ jenis: 'galat', judul: 'Surat tidak dapat diunduh', teks: e.message }));
+
 
 // Tiga langkah seperti desain. Persetujuan admin langsung menerbitkan surat konversi, jadi tidak ada langkah terpisah untuk surat.
 const langkahKonversi = (ditolak) => [
@@ -311,7 +316,7 @@ export function RiwayatKonversi() {
                       {['draft', 'ditolak'].includes(k.status)
                         ? <Link className="btn kuning kecil" to={`/konversi-sks/ajukan/${k.id}`}>{k.status === 'draft' ? 'Lanjutkan' : 'Perbaiki'}</Link>
                         : <Link className="btn garis kecil" to={`/konversi-sks/riwayat/${k.id}`}>Lihat Detail</Link>}
-                      {k.surat_tersedia && <TautanBerkas className="btn isi kecil" path={`/mahasiswa/konversi/${k.id}/surat`}>Unduh Surat</TautanBerkas>}
+                      {k.surat_tersedia && <button type="button" className="btn isi kecil" onClick={() => unduhSurat(`/mahasiswa/konversi/${k.id}/surat`, `Surat Konversi SKS ${k.nomor ?? k.id}.pdf`)}>Unduh Surat</button>}
                     </td>
                   </tr>
                 ))}
@@ -389,7 +394,7 @@ export function DetailKonversi() {
           <div className="baris-aksi">
             <Link className="btn garis" to="/konversi-sks/riwayat">Lihat Riwayat</Link>
             {k.surat_tersedia
-              ? <TautanBerkas className="btn isi" path={`/mahasiswa/konversi/${k.id}/surat`}>Unduh Surat Konversi SKS (PDF)</TautanBerkas>
+              ? <button type="button" className="btn isi" onClick={() => unduhSurat(`/mahasiswa/konversi/${k.id}/surat`, `Surat Konversi SKS ${k.nomor ?? k.id}.pdf`)}>Unduh Surat Konversi SKS (PDF)</button>
               : <button className="btn isi" disabled>Surat konversi belum diterbitkan</button>}
           </div>
         </section>

@@ -129,6 +129,27 @@ test('persetujuan menerbitkan surat PDF bernomor yang bisa diunduh mahasiswa', a
   assert.equal((await ADM('GET', `/rekomendasi/${milikA.id}/surat`)).tipe, 'application/pdf');
 });
 
+test('admin mengisi nomor surat dan TTD, pratinjau tidak menerbitkan, terbit ulang mengganti nomor', async () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const id = await pengajuan(A);
+  const pratinjau = await ADM('POST', `/rekomendasi/${id}/pratinjau`, { nomor_surat: '118/PS-SI/S1/VIII/2026', ttd: PNG });
+  assert.equal(pratinjau.tipe, 'application/pdf');
+  assert.equal((await ADM('GET', `/rekomendasi/${id}`)).data.status, 'diajukan'); // pratinjau tidak mengubah apa pun
+  assert.equal((await ADM('POST', `/rekomendasi/${id}/setujui`, { nomor_surat: 'x' })).status, 400);
+  assert.equal((await ADM('POST', `/rekomendasi/${id}/setujui`, { ttd: 'data:image/png;base64,AAAA' })).status, 400); // bukan PNG
+  assert.equal((await ADM('POST', `/rekomendasi/${id}/setujui`, { nomor_surat: '118/PS-SI/S1/VIII/2026', ttd: PNG })).data.nomor_surat, '118/PS-SI/S1/VIII/2026');
+
+  const lain = await pengajuan(A);
+  assert.equal((await ADM('POST', `/rekomendasi/${lain}/setujui`, { nomor_surat: '118/PS-SI/S1/VIII/2026' })).status, 409); // nomor kembar
+  assert.equal((await ADM('GET', `/rekomendasi/${lain}`)).data.status, 'diajukan');
+  assert.equal((await ADM('POST', `/rekomendasi/${lain}/surat/ulang`, {})).status, 409); // belum terbit
+
+  assert.equal((await ADM('POST', `/rekomendasi/${id}/surat/ulang`, { nomor_surat: '119/PS-SI/S1/VIII/2026' })).data.nomor_surat, '119/PS-SI/S1/VIII/2026');
+  assert.equal((await ADM('GET', `/rekomendasi/${id}`)).data.surat.nomor_surat, '119/PS-SI/S1/VIII/2026');
+  assert.equal((await req('t-a', 'GET', `/mahasiswa/rekomendasi/${id}/surat`)).tipe, 'application/pdf'); // mahasiswa hanya mengunduh
+  await db.query("UPDATE pengajuan_rekomendasi SET status = 'ditolak' WHERE id_pengajuan = ANY($1)", [[id, lain]]); // tidak memengaruhi tes berikutnya
+});
+
 test('konversi: periksa berkas → pemetaan → setujui (surat terbit) → dosen terpisah', async () => {
   const idP = (await ADM('GET', '/rekomendasi?status=diterbitkan')).data.find((x) => x.mahasiswa.npm === '19990001').id;
   const { rows: [pen] } = await db.query("INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, file_surat_penerimaan, pilih_konversi, status) VALUES ($1, 'Dev', '2027-01-04', '2027-04-02', 'x.pdf', true, 'diterima_perusahaan') RETURNING id_penerimaan", [idP]);
@@ -149,7 +170,7 @@ test('konversi: periksa berkas → pemetaan → setujui (surat terbit) → dosen
   assert.equal((await ADM('POST', `/konversi/${id}/hasil`, { matkul: [{ id_matkul: mk.id, sks_diakui: 4 }] })).status, 400); // melebihi SKS mata kuliah
   assert.equal((await ADM('POST', `/konversi/${id}/setujui`)).status, 409); // belum ada pemetaan
   assert.equal((await ADM('POST', `/konversi/${id}/hasil`, { matkul: [{ id_matkul: mk.id, sks_diakui: 3, keterangan: 'Sesuai proyek web' }, { id_matkul: mk2.id, sks_diakui: 2 }] })).status, 200);
-  assert.deepEqual((await ADM('GET', `/konversi/${id}`)).data.matkul.map((x) => x.keterangan), ['Sesuai proyek web', 'Tidak mengikuti perkuliahan, UTS, UAS/Ujian Utama, Praktikum Penunjang dan Wajib Mengikuti Ujian Capaian Pembelajaran.']);
+  assert.deepEqual((await ADM('GET', `/konversi/${id}`)).data.matkul.map((x) => x.keterangan),['Sesuai proyek web', 'Tidak mengikuti perkuliahan, UTS, UAS/Ujian Utama, Praktikum Penunjang dan Wajib Mengikuti Ujian Capaian Pembelajaran.']);
   assert.equal((await ADM('POST', `/konversi/${id}/dosen`, { id_dosen: dosen.id_dosen })).status, 409); // belum disetujui
 
   // pemetaan belum final: mahasiswa belum melihat hasilnya

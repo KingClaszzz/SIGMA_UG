@@ -4,7 +4,8 @@ import Muat from '../components/Muat.jsx';
 import TautanBerkas from '../components/Berkas.jsx';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { api, useApi } from '../api';
+import { api, unduhBerkas, useApi } from '../api';
+import { beritahu } from '../components/Pemberitahuan.jsx';
 import Badge from '../components/Badge.jsx';
 import Berhasil from '../components/Berhasil.jsx';
 import Steps from '../components/Steps.jsx';
@@ -13,6 +14,10 @@ import Timeline from '../components/Timeline.jsx';
 import Upload from '../components/Upload.jsx';
 import { durasi, rentang, sisaHari, tanggalAngka, tanggalPanjang } from '../format';
 import './mahasiswa.css';
+
+// Surat sudah dibuat Admin Prodi; mahasiswa cukup mengunduh berkas PDF-nya.
+const unduhSurat = (path, nama) => unduhBerkas(path, nama).catch((e) => beritahu({ jenis: 'galat', judul: 'Surat tidak dapat diunduh', teks: e.message }));
+
 
 // Empat langkah seperti desain. Persetujuan admin langsung menerbitkan surat, jadi langkah 2, 3, dan 4 selesai bersamaan.
 const LANGKAH = [
@@ -33,7 +38,7 @@ function StatusPengajuan({ p, tombol = false }) {
       </div>
       <Timeline langkah={LANGKAH} sudah={SUDAH[p?.status ?? 'draft']} riwayat={p?.riwayat} ditolak={p?.status === 'ditolak'} alasan={p?.alasan_penolakan} />
       {tombol && (p?.surat
-        ? <TautanBerkas className="btn isi" style={{ marginTop: 16, width: '100%' }} path={`/mahasiswa/rekomendasi/${p.id}/surat`}>Unduh Surat Rekomendasi (PDF)</TautanBerkas>
+        ? <button type="button" className="btn isi" style={{ marginTop: 16, width: '100%' }} onClick={() => unduhSurat(`/mahasiswa/rekomendasi/${p.id}/surat`, `Surat Rekomendasi ${p.surat?.nomor_surat?.replaceAll('/', '-') ?? p.id}.pdf`)}>Unduh Surat Rekomendasi (PDF)</button>
         : <button className="btn isi" style={{ marginTop: 16, width: '100%' }} disabled>{!p || p.status === 'draft' ? 'Belum ada pengajuan' : p.status === 'ditolak' ? 'Pengajuan ditolak' : 'Menunggu validasi'}</button>)}
     </section>
   );
@@ -229,7 +234,7 @@ export function RiwayatRekomendasi() {
                         {p.status === 'draft'
                           ? <Link className="btn kuning kecil" to={`/surat-rekomendasi?draft=${p.id}`}>{p.alasan_penolakan ? 'Perbaiki' : 'Lanjutkan'}</Link>
                           : <Link className="btn garis kecil" to={`/surat-rekomendasi/riwayat/${p.id}`}>Lihat Detail</Link>}
-                        {p.surat && <TautanBerkas className="btn isi kecil" path={`/mahasiswa/rekomendasi/${p.id}/surat`}>Unduh Surat</TautanBerkas>}
+                        {p.surat && <button type="button" className="btn isi kecil" onClick={() => unduhSurat(`/mahasiswa/rekomendasi/${p.id}/surat`, `Surat Rekomendasi ${p.surat?.nomor_surat?.replaceAll('/', '-') ?? p.id}.pdf`)}>Unduh Surat</button>}
                       </td>
                     </tr>
                   );
@@ -278,7 +283,7 @@ export function DetailRekomendasi() {
             {p.surat ? (
               <>
                 <p className="isi">Nomor surat {p.surat.nomor_surat} · terbit {tanggalAngka(p.surat.diterbitkan_pada)}. Surat dapat diunduh kapan saja.</p>
-                <TautanBerkas className="btn isi" style={{ marginTop: 14 }} path={`/mahasiswa/rekomendasi/${p.id}/surat`}>Unduh Surat Rekomendasi (PDF)</TautanBerkas>
+                <button type="button" className="btn isi" style={{ marginTop: 14 }} onClick={() => unduhSurat(`/mahasiswa/rekomendasi/${p.id}/surat`, `Surat Rekomendasi ${p.surat?.nomor_surat?.replaceAll('/', '-') ?? p.id}.pdf`)}>Unduh Surat Rekomendasi (PDF)</button>
               </>
             ) : (
               <>

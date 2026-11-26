@@ -151,6 +151,21 @@ export function validasiMataKuliah(m) {
   return null;
 }
 
+// Nomor surat rekomendasi diinput admin (GUIDE PENGISIAN SURAT REKOM), contoh 118/PS-SI/S1/VIII/2026. Kosong = nomor otomatis.
+export const validasiNomorSurat = (s) => (s == null || String(s).trim() === '' || /^[A-Za-z0-9./ -]{3,50}$/.test(String(s).trim())
+  ? null : 'Nomor surat 3–50 karakter (huruf, angka, titik, garis miring, tanda hubung).');
+
+// Tanda tangan digital dari admin: data URL PNG/JPG, maksimal 60 KB. Kosong = tanda tangan bawaan.
+export function bacaTtd(v) {
+  if (v == null || v === '') return { ttd: null };
+  const m = /^data:image\/(png|jpeg);base64,([A-Za-z0-9+/=]+)$/.exec(String(v));
+  const b = m && Buffer.from(m[2], 'base64');
+  const sah = b && (m[1] === 'png' ? b.subarray(0, 4).toString('hex') === '89504e47' : b.subarray(0, 3).toString('hex') === 'ffd8ff');
+  if (!sah) return { galat: 'Tanda tangan harus berupa gambar PNG atau JPG.' };
+  if (b.length > 60 * 1024) return { galat: 'Gambar tanda tangan maksimal 60 KB.' };
+  return { ttd: b };
+}
+
 // FR-07: baris hasil konversi = [{ id_matkul, sks_diakui }]; sks_diakui tidak boleh melebihi SKS mata kuliahnya (SDD tabel 13).
 export function validasiHasilKonversi(baris, matkul) {
   if (!Array.isArray(baris) || baris.length === 0) return 'Pilih minimal satu mata kuliah.';

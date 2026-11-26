@@ -4,7 +4,7 @@ import express from 'express';
 import { Galat, catat, iso, kirimPdf, q, riwayatDari, salah, satu } from '../lib.js';
 import {
   BATAS_MAGANG, DOKUMEN_AKHIR, alasanSah, evaluasiPengajuan, hariIni, jadwal, nomorTampil, syaratPengajuan,
-  validasiAkunDosen, validasiHasilKonversi, validasiMataKuliah, validasiPeriode,
+  bacaTtd, validasiAkunDosen, validasiHasilKonversi, validasiMataKuliah, validasiNomorSurat, validasiPeriode,
 } from '../rules.js';
 import { angkaTerbilang, bulanTahunId, buatSuratPdf, lamaBulan, nomorSuratBerikut, tanggalAngkaId, tanggalPanjangId } from '../surat.js';
 
@@ -237,26 +237,75 @@ export default function routerAdmin({ db, storage, akun }) {
     kirimPdf(res, await storage.baca(s.file_pdf), `${s.nomor_surat.replaceAll('/', '-')}.pdf`);
   });
 
+  // Isian surat rekomendasi (GUIDE PENGISIAN SURAT REKOM). Penanda tangan selalu Ketua Prodi dan sudah tertulis di templat;
+  // tanggal surat = tanggal admin menyetujui.
+  const dataRekomendasi = (p, nomor, tanggal, ttd) => ({
+    nomor_surat: nomor, kepada: p.kepada, perusahaan: p.nama_perusahaan, alamat_perusahaan: p.alamat_perusahaan,
+    nama: p.nama_mhs, alamat: p.alamat ?? '-', npm: p.npm, semester: p.semester, tahun_akademik: p.tahun_akademik ?? '', no_hp: p.no_telepon,
+    lama: `${lamaBulan(p.tgl_mulai, p.tgl_selesai)} bulan`, bulan_mulai: bulanTahunId(p.tgl_mulai), bulan_selesai: bulanTahunId(p.tgl_selesai),
+    tanggal_surat: tanggalAngkaId(tanggal), ttd_gambar: ttd ?? undefined,
+  });
+  // Input admin saat menerbitkan: nomor surat (kosong = otomatis) dan tanda tangan digital (kosong = bawaan).
+  const opsiSurat = (body) => {
+    salah(validasiNomorSurat(body?.nomor_surat));
+    const { ttd, galat } = bacaTtd(body?.ttd);
+    salah(galat);
+    return { nomor: String(body?.nomor_surat ?? '').trim(), ttd };
+  };
+  const nomorBebas = async (c, nomor) => {
+    if (await satu(c, 'SELECT 1 FROM surat WHERE nomor_surat = $1', [nomor])) throw new Galat(409, `Nomor surat ${nomor} sudah dipakai surat lain.`);
+  };
+
   // Menyetujui = menerbitkan surat: status disetujui lalu diterbitkan dicatat berurutan dalam satu transaksi.
   // `baru` menampung berkas yang sudah tersimpan agar bisa dibersihkan bila transaksi gagal.
-  async function setujuiDanTerbitkan(c, p, req, baru) {
+  async function setujuiDanTerbitkan(c, p, req, baru, { nomor, ttd } = {}) {
     const sekarang = new Date();
-    const nomor = await nomorSuratBerikut(c, 'rekomendasi', 'REK', sekarang);
-    const pdf = await buatSuratPdf(TEMPLAT.rekomendasi, {
-      nomor_surat: nomor, kepada: p.kepada, perusahaan: p.nama_perusahaan, alamat_perusahaan: p.alamat_perusahaan,
-      ttd_nama: req.user.nama, ttd_jabatan: req.admin.jabatan, ttd_nip: req.admin.nip, ttd_email: req.user.email, ttd_telepon: req.admin.no_telepon,
-      nama: p.nama_mhs, alamat: p.alamat ?? '-', npm: p.npm, semester: p.semester, tahun_akademik: p.tahun_akademik ?? '', no_hp: p.no_telepon,
-      lama: `${lamaBulan(p.tgl_mulai, p.tgl_selesai)} bulan`, bulan_mulai: bulanTahunId(p.tgl_mulai), bulan_selesai: bulanTahunId(p.tgl_selesai), tanggal_surat: tanggalAngkaId(sekarang),
-    });
+    const nomorSurat = nomor || await nomorSuratBerikut(c, 'rekomendasi', 'REK', sekarang);
+    await nomorBebas(c, nomorSurat);
+    const pdf = await buatSuratPdf(TEMPLAT.rekomendasi, dataRekomendasi(p, nomorSurat, sekarang, ttd));
     const lokasi = await storage.simpan(pdf, 'surat/rekomendasi');
     baru.push(lokasi);
     await c.query('UPDATE pengajuan_rekomendasi SET divalidasi_oleh = $1, divalidasi_pada = now(), alasan_penolakan = NULL WHERE id_pengajuan = $2', [req.admin.id_admin, p.id_pengajuan]);
     await catat(c, 'pengajuan_rekomendasi', p.id_pengajuan, 'diajukan', 'disetujui', req.user.id_user);
     await c.query('INSERT INTO surat (jenis_surat, nomor_surat, id_pengajuan, id_template, file_pdf, diterbitkan_oleh) VALUES ($1, $2, $3, $4, $5, $6)',
-      ['rekomendasi', nomor, p.id_pengajuan, await templatTerpasang(c, 'rekomendasi'), lokasi, req.admin.id_admin]);
+      ['rekomendasi', nomorSurat, p.id_pengajuan, await templatTerpasang(c, 'rekomendasi'), lokasi, req.admin.id_admin]);
     await catat(c, 'pengajuan_rekomendasi', p.id_pengajuan, 'disetujui', 'diterbitkan', req.user.id_user);
-    return nomor;
+    return nomorSurat;
   }
+
+  // Pratinjau sebelum terbit: PDF dengan nomor dan TTD yang akan dipakai, tidak disimpan dan tidak mengubah status.
+  r.post('/rekomendasi/:id/pratinjau', async (req, res) => {
+    const o = opsiSurat(req.body);
+    const p = await satu(db, `${REK_SQL} WHERE p.id_pengajuan = $1`, [Number(req.params.id)]);
+    if (!p) throw new Galat(404, 'Pengajuan tidak ditemukan.');
+    // Surat yang sudah terbit (pratinjau terbit ulang) memakai nomor dan tanggal persetujuannya sendiri.
+    const s = await satu(db, 'SELECT nomor_surat, diterbitkan_pada FROM surat WHERE id_pengajuan = $1', [p.id_pengajuan]);
+    const tanggal = s?.diterbitkan_pada ?? new Date();
+    const nomor = o.nomor || s?.nomor_surat || await nomorSuratBerikut(db, 'rekomendasi', 'REK', tanggal);
+    kirimPdf(res, await buatSuratPdf(TEMPLAT.rekomendasi, dataRekomendasi(p, nomor, tanggal, o.ttd)), 'Pratinjau Surat Rekomendasi.pdf');
+  });
+
+  // Terbitkan ulang surat yang sudah terbit (mis. hasil validasi massal yang memakai nomor otomatis): nomor/TTD baru,
+  // tanggal surat tetap tanggal persetujuan. Berkas lama dihapus setelah transaksi berhasil.
+  r.post('/rekomendasi/:id/surat/ulang', async (req, res) => {
+    const o = opsiSurat(req.body);
+    let lama = null;
+    const nomor = await denganPembersihan((baru) => db.transaksi(async (c) => {
+      const p = await satu(c, `${REK_SQL} WHERE p.id_pengajuan = $1 FOR UPDATE OF p`, [Number(req.params.id)]);
+      if (!p) throw new Galat(404, 'Pengajuan tidak ditemukan.');
+      const s = await satu(c, 'SELECT * FROM surat WHERE id_pengajuan = $1', [p.id_pengajuan]);
+      if (p.status !== 'diterbitkan' || !s) throw new Galat(409, 'Surat rekomendasi ini belum diterbitkan.');
+      const nomorSurat = o.nomor || s.nomor_surat;
+      if (nomorSurat !== s.nomor_surat) await nomorBebas(c, nomorSurat);
+      const lokasi = await storage.simpan(await buatSuratPdf(TEMPLAT.rekomendasi, dataRekomendasi(p, nomorSurat, s.diterbitkan_pada, o.ttd)), 'surat/rekomendasi');
+      baru.push(lokasi);
+      await c.query('UPDATE surat SET nomor_surat = $1, file_pdf = $2 WHERE id_surat = $3', [nomorSurat, lokasi, s.id_surat]);
+      lama = s.file_pdf;
+      return nomorSurat;
+    }));
+    await storage.hapus(lama);
+    res.json({ nomor_surat: nomor });
+  });
   const denganPembersihan = async (fn) => {
     const baru = [];
     try {
@@ -296,6 +345,7 @@ export default function routerAdmin({ db, storage, akun }) {
   // "Setujui Pengajuan": hanya bila data diri terverifikasi dan semua syarat terpenuhi; suratnya langsung terbit.
   r.post('/rekomendasi/:id/setujui', async (req, res) => {
     const id = Number(req.params.id);
+    const opsi = opsiSurat(req.body);
     const nomor = await denganPembersihan((baru) => db.transaksi(async (c) => {
       const p = await satu(c, `${REK_SQL} WHERE p.id_pengajuan = $1 FOR UPDATE OF p`, [id]);
       if (!p) throw new Galat(404, 'Pengajuan tidak ditemukan.');
@@ -303,7 +353,7 @@ export default function routerAdmin({ db, storage, akun }) {
       if (p.status_verifikasi !== 'terverifikasi') throw new Galat(409, 'Verifikasi data diri mahasiswa terlebih dahulu.');
       const gagal = evaluasiPengajuan(p, p.is_diizinkan, p.magang, await periodeTerbaru(c));
       if (gagal.length) throw new Galat(409, `Syarat belum terpenuhi: ${gagal.join('; ')}. Tolak pengajuan bila memang tidak memenuhi syarat.`);
-      return setujuiDanTerbitkan(c, p, req, baru);
+      return setujuiDanTerbitkan(c, p, req, baru, opsi);
     }));
     res.json({ nomor_surat: nomor });
   });
@@ -463,7 +513,8 @@ export default function routerAdmin({ db, storage, akun }) {
         nomor_surat: nomorSurat, tahun_akademik: data.tahun_akademik ?? '', nama: data.mahasiswa.nama, npm: data.mahasiswa.npm, angkatan: angkatan(data.mahasiswa.npm),
         kegiatan: `Magang Mandiri sebagai ${data.posisi} di ${data.nama_perusahaan}, selama ${angkaTerbilang(lamaBulan(data.tgl_mulai, data.tgl_selesai))} bulan.`,
         total_sks: angkaTerbilang(total), tanggal_surat: tanggalPanjangId(sekarang),
-      }, data.matkul.map((m) => ({ ...m, sem: data.mahasiswa.semester })));
+      // Kolom SEM: SDD tidak menyimpan semester per mata kuliah, jadi diisi semester mahasiswa.
+      }, data.matkul.map((m) => ({ ...m, semester: data.mahasiswa.semester })));
       const lokasi = await storage.simpan(pdf, 'surat/konversi');
       baru.push(lokasi);
       await c.query('INSERT INTO surat (jenis_surat, nomor_surat, id_konversi, id_template, file_pdf, diterbitkan_oleh) VALUES ($1, $2, $3, $4, $5, $6)',

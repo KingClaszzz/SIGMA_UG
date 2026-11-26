@@ -4,7 +4,7 @@ import Muat from '../components/Muat.jsx';
 // Detail: pemeriksaan per pengajuan (setujui, minta perbaikan, tolak) atau ringkasan pengajuan yang sudah disetujui.
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api, useAksi, useApi } from '../api';
+import { api, bukaBerkas, unduhBerkas, useAksi, useApi } from '../api';
 import Badge from '../components/Badge.jsx';
 import Dialog from '../components/Dialog.jsx';
 import TautanBerkas from '../components/Berkas.jsx';
@@ -128,11 +128,58 @@ function StatusSyarat({ ok, terverifikasi }) {
   return ok ? <span className="badge hijau">Sesuai</span> : <span className="badge merah">Tidak sesuai</span>;
 }
 
+// Tanda tangan dikecilkan (maks. 600×300 px, PNG transparan) agar ringan dikirim ke server.
+async function ttdKeDataUrl(file) {
+  const img = await createImageBitmap(file);
+  const skala = Math.min(1, 600 / img.width, 300 / img.height);
+  const kanvas = document.createElement('canvas');
+  kanvas.width = Math.round(img.width * skala);
+  kanvas.height = Math.round(img.height * skala);
+  kanvas.getContext('2d').drawImage(img, 0, 0, kanvas.width, kanvas.height);
+  return kanvas.toDataURL('image/png');
+}
+
+// Isian admin saat menerbitkan surat (GUIDE PENGISIAN SURAT REKOM): nomor surat dan tanda tangan digital Ketua Prodi, lalu pratinjau sebelum terbit.
+function DialogTerbit({ p, ulang, sibuk, jalan, onTutup, onKirim }) {
+  const [surat, setSurat] = useState({ nomor_surat: '', ttd: '' });
+  const [galatTtd, setGalatTtd] = useState(null);
+  async function pilihTtd(file) {
+    setGalatTtd(null);
+    if (!file) return setSurat((x) => ({ ...x, ttd: '' }));
+    if (!['image/png', 'image/jpeg'].includes(file.type)) return setGalatTtd('Pilih gambar PNG atau JPG.');
+    const url = await ttdKeDataUrl(file);
+    if (url.length > 80_000) return setGalatTtd('Gambar tanda tangan terlalu besar. Pakai gambar yang lebih sederhana (maks. 60 KB).');
+    setSurat((x) => ({ ...x, ttd: url }));
+  }
+  return (
+    <Dialog judul={ulang ? 'Terbitkan Ulang Surat' : 'Setujui dan Terbitkan Surat'} onTutup={onTutup}>
+      <p className="isi">{ulang ? 'Surat diganti dengan nomor atau tanda tangan baru. Tanggal surat tetap tanggal persetujuan.' : <>Surat rekomendasi untuk <strong>{p.mahasiswa.nama}</strong> akan langsung diterbitkan dan bisa diunduh mahasiswa.</>}</p>
+      <div className="aksi-form">
+        <label>Nomor surat
+          <input maxLength={50} value={surat.nomor_surat} onChange={(e) => setSurat({ ...surat, nomor_surat: e.target.value })} placeholder={ulang ? p.surat?.nomor_surat : 'Contoh: 118/PS-SI/S1/VIII/2026'} />
+        </label>
+        <p className="catatan-kecil" style={{ marginTop: -6 }}>{ulang ? 'Kosongkan untuk tetap memakai nomor sekarang.' : 'Kosongkan untuk nomor otomatis (NNN/REK/SI-UG/BLN/TTTT).'}</p>
+        <label>Tanda tangan digital Ketua Prodi (PNG/JPG, opsional)
+          <input type="file" accept="image/png,image/jpeg" onChange={(e) => pilihTtd(e.target.files[0])} />
+        </label>
+        <p className="catatan-kecil" style={{ marginTop: -6 }}>Tanpa unggahan, dipakai tanda tangan bawaan sistem.</p>
+        {surat.ttd && <img src={surat.ttd} alt="Tanda tangan yang akan dipakai" style={{ maxHeight: 64, justifySelf: 'start' }} />}
+        {galatTtd && <p className="pesan galat" role="alert">{galatTtd}</p>}
+      </div>
+      <div className="dialog-aksi">
+        <button className="btn garis" onClick={onTutup}>Batal</button>
+        <button className="btn garis" disabled={sibuk || !!galatTtd} onClick={() => jalan(() => bukaBerkas(`/admin/rekomendasi/${p.id}/pratinjau`, surat))}>Pratinjau PDF</button>
+        <button className="btn isi" disabled={sibuk || !!galatTtd} onClick={() => onKirim(surat)}>{sibuk ? 'Menerbitkan…' : ulang ? 'Terbitkan Ulang' : 'Setujui dan Terbitkan'}</button>
+      </div>
+    </Dialog>
+  );
+}
+
 export function DetailRekomendasiAdmin() {
   const { id } = useParams();
   const { data: p, error, muat } = useApi(`/admin/rekomendasi/${id}`);
   const [catatan, setCatatan] = useState('');
-  const [mode, setMode] = useState(null); // 'setuju' | 'perbaikan' | 'tolak' | null
+  const [mode, setMode] = useState(null); // 'setuju' | 'ulang' | 'perbaikan' | 'tolak' | null
   const { sibuk, galat, jalan } = useAksi(muat);
   const kirim = (rute, body, pesan) => jalan(async () => { await api(`/admin/rekomendasi/${rute}`, { method: 'POST', body }); setMode(null); setCatatan(''); }, pesan);
 
@@ -231,7 +278,12 @@ export function DetailRekomendasiAdmin() {
               </section>
               <section className="kartu">
                 <h2>Preview Surat</h2>
-                <TautanBerkas className="btn isi" path={`/admin/rekomendasi/${p.id}/surat`}>Lihat Surat (PDF)</TautanBerkas>
+                <div className="aksi-keputusan">
+                  <TautanBerkas className="btn isi" path={`/admin/rekomendasi/${p.id}/surat`}>Lihat Surat (PDF)</TautanBerkas>
+                  <button type="button" className="btn garis" onClick={() => unduhBerkas(`/admin/rekomendasi/${p.id}/surat`, `${p.surat.nomor_surat.replaceAll('/', '-')}.pdf`)}>Unduh</button>
+                  <button type="button" className="btn garis" disabled={sibuk} onClick={() => setMode('ulang')}>Terbitkan Ulang</button>
+                </div>
+                <p className="catatan-kecil">Terbitkan ulang untuk mengganti nomor surat atau tanda tangan. Mahasiswa otomatis mengunduh versi terbaru.</p>
               </section>
             </>
           ) : (
@@ -263,14 +315,9 @@ export function DetailRekomendasiAdmin() {
         </div>
       </div>
 
-      {mode === 'setuju' && (
-        <Dialog judul="Setujui Pengajuan?" onTutup={() => setMode(null)}>
-          <p className="isi">Surat rekomendasi untuk <strong>{m.nama}</strong> akan langsung diterbitkan dan bisa diunduh mahasiswa.</p>
-          <div className="dialog-aksi">
-            <button className="btn garis" onClick={() => setMode(null)}>Batal</button>
-            <button className="btn isi" disabled={sibuk} onClick={() => kirim(`${p.id}/setujui`, undefined, { judul: 'Pengajuan disetujui', teks: 'Surat rekomendasi sudah diterbitkan.' })}>{sibuk ? 'Menerbitkan…' : 'Setujui dan Terbitkan'}</button>
-          </div>
-        </Dialog>
+      {(mode === 'setuju' || mode === 'ulang') && (
+        <DialogTerbit p={p} ulang={mode === 'ulang'} sibuk={sibuk} jalan={jalan} onTutup={() => setMode(null)}
+          onKirim={(surat) => kirim(mode === 'ulang' ? `${p.id}/surat/ulang` : `${p.id}/setujui`, surat, mode === 'ulang' ? { judul: 'Surat diterbitkan ulang', teks: 'Mahasiswa kini mengunduh versi terbaru.' } : { judul: 'Pengajuan disetujui', teks: 'Surat rekomendasi sudah diterbitkan.' })} />
       )}
     </div>
   );

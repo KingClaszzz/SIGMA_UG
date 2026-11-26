@@ -209,4 +209,18 @@ Tabel dan kolom dicocokkan dengan `docs/Versi2_03_SDD.docx`. Dari 20 tabel, semu
 
 Yang perlu diperbaiki di SDD v2 nanti: paragraf tabel users masih menyebut `password_hash` (bcrypt), padahal login memakai Supabase Auth (`auth_id`). Paragraf dokumen_akhir juga masih menyebut ringkasan.
 
+## Surat rekomendasi & konversi 1:1 dengan templat prodi
+
+Acuan: `docs/template/Surat Rekomendasi/` (GUIDE PENGISIAN SURAT REKOM.docx, contoh Zaki) dan `docs/template/Surat Konversi/` (GUIDE PENGISIAN SURAT KONVERSI.pdf, contoh Tania). Contoh Zaki dan Tania dibuat ulang lewat `buatSuratPdf` lalu dibandingkan per baris: posisi teks cocok dengan selisih ≤ 1 pt, kecuali judul tebal rata tengah di surat konversi (2–4 pt) dan butir "b."/"3." (1,2 pt).
+
+- **`server/surat.js` ditulis ulang**: posisi, ukuran, warna kop (ungu `#57257d` rekomendasi, `#68237c` konversi), garis bawah judul, tebal/miring dalam kalimat, tabel lampiran, dan jarak baris diukur dari berkas acuan. Pemenggalan baris memakai penyusun sendiri (seperti Word: hanya di spasi). Helvetica dipakai sebagai pengganti Arial (lebar huruf sama).
+- **Templat** `server/templates/surat-*.txt` memakai format arahan baru (lihat komentar di `surat.js`). Logo diambil dari masing-masing berkas acuan (`logo-rekomendasi.jpg`, `logo-konversi.jpg`), `logo-gunadarma.jpg` dihapus.
+- **Surat rekomendasi**: ada blok No./Hal/Lamp.; penanda tangan selalu Dr. Naeli Umniati., ST.,MMSI (data tetap di templat); tanggal = tanggal admin menyetujui (DD-MM-YYYY); tanda tangan digital di atas nama.
+  - TTD bawaan `server/templates/ttd-kaprodi.png` **masih contoh (TTD Arya_Contoh)**. Ganti berkas itu dengan TTD Bu Naeli, atau admin mengunggah TTD saat menerbitkan.
+- **Admin**: dialog terbit berisi nomor surat (kosong = otomatis), unggah TTD (PNG/JPG, opsional), dan **Pratinjau PDF**. Surat yang sudah terbit bisa **Unduh** dan **Terbitkan Ulang** (ganti nomor/TTD, tanggal tetap). Validasi massal tetap memakai nomor otomatis; nomor bisa diganti lewat Terbitkan Ulang.
+  - Endpoint baru: `POST /api/admin/rekomendasi/:id/pratinjau`, `POST /api/admin/rekomendasi/:id/surat/ulang`. `POST .../setujui` menerima `{ nomor_surat?, ttd? }`.
+- **Surat konversi**: tidak ada TTD digital (ditandatangani basah). Kolom SEM diisi semester mahasiswa, karena SDD tidak menyimpan semester per mata kuliah (panduan meminta "semester matkul di database").
+- **Mahasiswa**: tidak membuat surat apa pun, hanya tombol Unduh (langsung mengunduh PDF).
+- **Database**: tidak ada tabel atau kolom baru (tetap sama dengan SDD v2). Nomor surat memakai `surat.nomor_surat`, TTD tidak disimpan di database.
+
 Acuan aturan bisnis: `docs/` (Definisi, SRS, SDD). Peta folder dan cara jalanin: README.

@@ -157,6 +157,8 @@ CREATE TABLE IF NOT EXISTS mata_kuliah (
   nama_mk VARCHAR(50) NOT NULL,
   sks SMALLINT NOT NULL CHECK (sks BETWEEN 1 AND 6)
 );
+-- mata_kuliah.semester sempat ditambahkan lalu dicabut agar sama dengan SDD v2 (Tabel 12).
+ALTER TABLE mata_kuliah DROP COLUMN IF EXISTS semester;
 
 CREATE TABLE IF NOT EXISTS detail_konversi (
   id_detail SERIAL PRIMARY KEY,
