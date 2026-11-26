@@ -73,3 +73,12 @@
   .auth-pesan > *, .auth-pesan li, .auth-form { animation: none; }
   .auth-tombol:hover, .auth-form input:focus, .auth-mata:hover, .auth-merek:hover img { transform: none; }
 }
+
+/* Peringatan sesi (akun dipakai di perangkat lain / sesi berakhir) */
+.sesi-dialog { text-align: center; }
+.sesi-ikon { display: grid; place-items: center; width: 56px; height: 56px; margin: 0 auto 14px; border-radius: 50%; background: var(--yellow-bg); color: var(--yellow-fg); }
+.sesi-dialog h2 { font-size: 19px; }
+.sesi-dialog .isi { margin: 0 0 14px; line-height: 1.55; }
+.sesi-langkah { margin: 0 0 14px; padding: 12px 14px 12px 34px; border-radius: 10px; background: var(--grey-95); text-align: left; font-size: 14px; line-height: 1.6; }
+.sesi-langkah li + li { margin-top: 2px; }
+.sesi-dialog .catatan-kecil { margin: 0; }

@@ -259,7 +259,9 @@ test('manajemen akun dosen', async () => {
   assert.equal((await ADM('POST', '/akun/dosen', { ...baru, password: 'pendek' })).status, 400);
   assert.equal((await ADM('POST', '/akun/dosen', { ...baru, email: 'ada@uji.test' })).status, 409);
   assert.equal((await ADM('POST', '/akun/dosen', { ...baru, nidn: '0312088501' })).status, 409);
-  assert.equal((await ADM('POST', '/akun/dosen', baru)).status, 201);
+  const dibuatBaru = await ADM('POST', '/akun/dosen', baru);
+  assert.deepEqual([dibuatBaru.status, dibuatBaru.data.email_terkirim], [201, true]);
+  assert.deepEqual(akunUji.kirim, ['baru@uji.test']); // email verifikasi dikirim saat akun dibuat
   const daftar = (await ADM('GET', '/akun/dosen?q=baru')).data;
   assert.equal(daftar.length, 1);
   assert.equal((await ADM('PUT', `/akun/${daftar[0].id_user}/aktif`, { aktif: false })).status, 200);
@@ -274,7 +276,7 @@ test('manajemen akun dosen', async () => {
   akunUji.sudah = false;
   assert.equal((await ADM('GET', '/akun/dosen?q=baru')).data[0].email_terverifikasi, false);
   assert.equal((await ADM('POST', `/akun/dosen/${id_user}/verifikasi-ulang`)).status, 200);
-  assert.deepEqual(akunUji.kirim, ['baru@uji.test']);
+  assert.deepEqual(akunUji.kirim, ['baru@uji.test', 'baru@uji.test']);
   assert.equal((await ADM('POST', '/akun/dosen/999999/verifikasi-ulang')).status, 404);
 });
 

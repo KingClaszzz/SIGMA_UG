@@ -805,7 +805,7 @@ export default function routerAdmin({ db, storage, akun, email }) {
     try {
       await akun.kirimVerifikasi(u.email);
     } catch (e) {
-      throw new Galat(400, `Email verifikasi gagal dikirim: ${e.message}`);
+      throw new Galat(400, `Email verifikasi gagal dikirim (${e.message}). Periksa pengaturan SMTP di Supabase: Authentication → Emails → SMTP Settings.`);
     }
     res.json({ ok: true });
   });
@@ -832,7 +832,10 @@ export default function routerAdmin({ db, storage, akun, email }) {
       await akun.hapus(authId); // jangan tinggalkan akun login tanpa profil
       throw e;
     }
-    res.status(201).json({ ok: true });
+    // Akun tetap dibuat walau email gagal terkirim; admin diberi tahu dan bisa mengirim ulang.
+    let emailTerkirim = true;
+    try { await akun.kirimVerifikasi(email); } catch { emailTerkirim = false; }
+    res.status(201).json({ ok: true, email_terkirim: emailTerkirim });
   });
 
   r.put('/akun/:idUser/aktif', async (req, res) => {

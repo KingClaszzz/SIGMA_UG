@@ -161,3 +161,10 @@
 .avatar-besar { display: grid; place-items: center; flex: none; width: 64px; height: 64px; border-radius: 50%; background: var(--violet-33); font-size: 22px; font-weight: 700; color: #fff; }
 .alat-tabel label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
 .alat-tabel label input[type='search'] { max-width: none; }
+
+/* Manajemen akun dosen: status dan aksi disusun rapi, label tidak terpotong jadi tiga baris */
+.status-akun { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.status-akun .badge { white-space: nowrap; }
+.aksi-akun { display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 176px; }
+.aksi-akun .btn { width: 100%; white-space: nowrap; }
+.aksi-akun .pesan { max-width: 220px; font-size: 12px; }

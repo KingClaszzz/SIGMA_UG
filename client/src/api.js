@@ -13,6 +13,12 @@ async function akunDipakaiLain() {
   window.location.assign('/masuk?sesi=lain');
 }
 
+// Sesi sudah tidak berlaku di server (masuk di perangkat lain, keluar dari perangkat lain, atau kedaluwarsa): bersihkan sesi lokal lalu jelaskan di halaman masuk.
+async function sesiBerakhir() {
+  try { await supabase?.auth.signOut({ scope: 'local' }); } catch { /* sesi sudah hilang */ }
+  window.location.assign('/masuk?sesi=berakhir');
+}
+
 // Satu pintu ke API. `berkas` mengirim PDF mentah (nama asli lewat header X-Filename).
 export async function api(path, { method = 'GET', body, berkas } = {}) {
   const headers = await header();
@@ -28,6 +34,7 @@ export async function api(path, { method = 'GET', body, berkas } = {}) {
   const res = await fetch(`/api${path}`, { method, headers, body: payload });
   const data = await res.json().catch(() => null);
   if (res.status === 409 && data?.kode === 'SESI_LAIN') await akunDipakaiLain();
+  if (res.status === 401 && headers.Authorization) await sesiBerakhir();
   if (!res.ok) throw new Error(data?.error ?? (res.status >= 500 ? 'Server tidak merespons. Pastikan server API berjalan, lalu muat ulang halaman.' : 'Terjadi kesalahan.'));
   return data;
 }

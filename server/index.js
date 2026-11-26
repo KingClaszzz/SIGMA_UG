@@ -20,7 +20,6 @@ const akun = {
   async buat({ email, password, nama }) {
     const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: false, user_metadata: { nama } });
     if (error) throw new Error(/already|registered/i.test(error.message) ? 'EMAIL_ADA' : error.message);
-    await akun.kirimVerifikasi(email).catch(() => {}); // gagal kirim tidak membatalkan akun: admin bisa mengirim ulang
     return data.user.id;
   },
   async kirimVerifikasi(email) {

@@ -6,6 +6,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, useAksi, useApi } from '../api';
 import Badge from '../components/Badge.jsx';
 import Dialog from '../components/Dialog.jsx';
+import InputSandi from '../components/InputSandi.jsx';
 
 const TAB = [['dosen', 'Dosen'], ['mahasiswa', 'Mahasiswa']];
 const KOSONG = { nama: '', nidn: '', email: '', no_telepon: '', password: '' };
@@ -33,13 +34,13 @@ function TambahDosen({ onTutup, muat }) {
   const isi = (k) => (e) => setF({ ...f, [k]: e.target.value });
   return (
     <Dialog judul="Tambah Akun Dosen" onTutup={onTutup} lebar={520}>
-      <form className="aksi-form" style={{ marginTop: 0 }} onSubmit={async (e) => { e.preventDefault(); if (await jalan(() => api('/admin/akun/dosen', { method: 'POST', body: f }), { judul: 'Akun dosen dibuat', teks: 'Tautan verifikasi dikirim ke email dosen. Sampaikan juga kata sandi awal.' })) onTutup(); }}>
+      <form className="aksi-form" style={{ marginTop: 0 }} onSubmit={async (e) => { e.preventDefault(); if (await jalan(() => api('/admin/akun/dosen', { method: 'POST', body: f }), (h) => (h.email_terkirim ? { judul: 'Akun dosen dibuat', teks: 'Tautan verifikasi dikirim ke email dosen. Sampaikan juga kata sandi awal.' } : { jenis: 'galat', judul: 'Akun dibuat, email verifikasi gagal dikirim', teks: 'Periksa pengaturan SMTP di Supabase, lalu klik Kirim Ulang Verifikasi pada akun ini.' }))) onTutup(); }}>
         <div className="grid-form">
           <label className="penuh">Nama Lengkap *<input required maxLength={60} value={f.nama} onChange={isi('nama')} /></label>
           <label>NIDN *<input required pattern="[0-9A-Za-z]{5,20}" title="5–20 huruf atau angka" value={f.nidn} onChange={isi('nidn')} /></label>
           <label>No. Telepon *<input required pattern="08\d{8,11}" title="10–13 digit, diawali 08" placeholder="08xxxxxxxxxx" value={f.no_telepon} onChange={isi('no_telepon')} /></label>
           <label className="penuh">Email *<input required type="email" maxLength={100} value={f.email} onChange={isi('email')} /></label>
-          <label className="penuh">Kata Sandi Awal *<input required type="password" minLength={8} maxLength={72} autoComplete="new-password" value={f.password} onChange={isi('password')} /></label>
+          <label className="penuh">Kata Sandi Awal *<InputSandi required minLength={8} maxLength={72} autoComplete="new-password" value={f.password} onChange={isi('password')} /></label>
         </div>
         <p className="catatan-kecil" style={{ marginTop: 0 }}>Tautan verifikasi dikirim ke email di atas; dosen baru bisa masuk setelah mengkliknya. Sampaikan kata sandi awal ini kepada dosen, yang bisa menggantinya lewat “Lupa kata sandi”.</p>
         {galat && <p className="pesan galat" role="alert">{galat}</p>}
@@ -84,8 +85,13 @@ function TabDosen() {
                 <tr key={d.id}>
                   <td>{d.nama}</td><td>{d.nidn}</td><td>{d.email}</td>
                   <td>{d.bimbingan.length === 0 ? '–' : d.bimbingan.join(', ')}</td>
-                  <td><StatusAkun aktif={d.is_aktif} />{!d.email_terverifikasi && <span className="badge kuning" style={{ marginLeft: 6 }}>Email belum diverifikasi</span>}</td>
-                  <td><div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><button className={`btn garis kecil${d.is_aktif ? ' bahaya' : ''}`} onClick={() => setUbah(d)}>{d.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>{!d.email_terverifikasi && <KirimUlangVerifikasi d={d} muat={muat} />}</div></td>
+                  <td>
+                    <div className="status-akun">
+                      <StatusAkun aktif={d.is_aktif} />
+                      <span className={`badge ${d.email_terverifikasi ? 'hijau' : 'kuning'}`}>{d.email_terverifikasi ? 'Email terverifikasi' : 'Email belum diverifikasi'}</span>
+                    </div>
+                  </td>
+                  <td><div className="aksi-akun"><button className={`btn garis kecil${d.is_aktif ? ' bahaya' : ''}`} onClick={() => setUbah(d)}>{d.is_aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>{!d.email_terverifikasi && <KirimUlangVerifikasi d={d} muat={muat} />}</div></td>
                 </tr>
               ))}
             </tbody>

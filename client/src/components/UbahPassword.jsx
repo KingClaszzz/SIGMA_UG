@@ -1,4 +1,5 @@
 // Dialog "Ubah Password" untuk pengguna yang sedang masuk (dipakai semua peran). Supabase Auth yang menyimpan kata sandi.
+import InputSandi from './InputSandi.jsx';
 import { useState } from 'react';
 import { supabase } from '../supabase';
 import { pesanAuth } from '../auth/sesi';
@@ -23,8 +24,8 @@ export default function UbahPassword({ onTutup }) {
   return (
     <Dialog judul="Ubah Password" onTutup={onTutup}>
       <form className="aksi-form" style={{ marginTop: 0 }} onSubmit={kirim}>
-        <label>Kata sandi baru (minimal 8 karakter)<input name="baru" type="password" minLength={8} required autoComplete="new-password" /></label>
-        <label>Ulangi kata sandi baru<input name="ulang" type="password" minLength={8} required autoComplete="new-password" /></label>
+        <label>Kata sandi baru (minimal 8 karakter)<InputSandi name="baru" minLength={8} required autoComplete="new-password" /></label>
+        <label>Ulangi kata sandi baru<InputSandi name="ulang" minLength={8} required autoComplete="new-password" /></label>
         {galat && <p className="pesan galat" role="alert">{galat}</p>}
         <div className="dialog-aksi">
           <button type="button" className="btn garis" onClick={onTutup}>Batal</button>

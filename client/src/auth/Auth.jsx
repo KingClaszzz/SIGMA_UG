@@ -65,6 +65,48 @@ function Sandi({ label, tambahan, ...props }) {
   );
 }
 
+// Peringatan sesi di halaman masuk: akun sedang dipakai di perangkat lain (?sesi=lain) atau sesi sudah berakhir (?sesi=berakhir).
+const PERINGATAN_SESI = {
+  lain: {
+    judul: 'Akun sedang digunakan di perangkat lain',
+    isi: 'Satu akun hanya bisa dipakai di satu perangkat dalam satu waktu. Saat ini akun ini sedang aktif di perangkat lain, jadi Anda belum bisa masuk di sini.',
+    langkah: ['Buka perangkat yang sedang memakai akun ini.', 'Pilih Keluar (logout).', 'Kembali ke halaman ini lalu masuk lagi.'],
+    catatan: 'Kalau perangkat itu sudah tidak dipakai (tab ditutup tanpa keluar), akun otomatis bebas sekitar 5 menit kemudian.',
+  },
+  berakhir: {
+    judul: 'Sesi Anda berakhir',
+    isi: 'Sesi masuk Anda sudah tidak berlaku. Ini terjadi bila akun dipakai atau keluar di perangkat lain, atau sesi sudah kedaluwarsa.',
+    langkah: ['Masuk kembali dengan email dan kata sandi Anda.', 'Bila terjadi lagi, pastikan akun tidak sedang dipakai di perangkat lain.'],
+    catatan: null,
+  },
+};
+
+function PeringatanSesi({ jenis, onTutup }) {
+  const p = PERINGATAN_SESI[jenis];
+  useEffect(() => {
+    const tutup = (e) => e.key === 'Escape' && onTutup();
+    document.addEventListener('keydown', tutup);
+    return () => document.removeEventListener('keydown', tutup);
+  }, [onTutup]);
+  if (!p) return null;
+  return (
+    <div className="dialog-latar" onMouseDown={(e) => e.target === e.currentTarget && onTutup()}>
+      <div className="dialog sesi-dialog" role="alertdialog" aria-modal="true" aria-labelledby="sesi-judul" aria-describedby="sesi-isi">
+        <span className="sesi-ikon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
+        </span>
+        <h2 id="sesi-judul">{p.judul}</h2>
+        <p id="sesi-isi" className="isi">{p.isi}</p>
+        <ol className="sesi-langkah">{p.langkah.map((l) => <li key={l}>{l}</li>)}</ol>
+        {p.catatan && <p className="catatan-kecil">{p.catatan}</p>}
+        <div className="dialog-aksi" style={{ justifyContent: 'center' }}>
+          <button type="button" className="btn isi" autoFocus onClick={onTutup}>Mengerti</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Galat yang pesannya sudah ditulis untuk pengguna (bukan galat Supabase yang perlu diterjemahkan).
 const galatForm = (pesan) => Object.assign(new Error(pesan), { tampil: true });
 
@@ -90,7 +132,7 @@ export function Masuk() {
   const { memuat, sesi } = useSesi();
   const navigate = useNavigate();
   const { state, search, hash } = useLocation();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const { galat, sibuk, kirim } = useKirim(async (f) => {
     const { error } = await supabase.auth.signInWithPassword({ email: f.get('email').trim(), password: f.get('password') });
     if (error) throw error;
@@ -118,7 +160,7 @@ export function Masuk() {
 
   return (
     <Tata judul="Selamat datang kembali" kaki={<>Belum punya akun? <Link to="/daftar">Daftar</Link></>}>
-      {params.get('sesi') === 'lain' && <p className="pesan galat" role="alert">Akun ini sedang digunakan di perangkat lain. Silakan keluar (logout) dari perangkat tersebut terlebih dahulu, lalu masuk kembali di sini.</p>}
+      {['lain', 'berakhir'].includes(params.get('sesi')) && <PeringatanSesi jenis={params.get('sesi')} onTutup={() => setParams({}, { replace: true })} />}
       {params.get('sesi') === 'habis' && <p className="banner-info" role="status">Sesi berakhir karena tidak ada aktivitas selama 30 menit. Silakan masuk kembali.</p>}
       <form onSubmit={kirim} className="auth-form">
         <Kolom label="Email" name="email" type="email" autoComplete="email" required />
@@ -250,8 +292,8 @@ export function AturUlangPassword() {
         <p className="banner-galat" role="alert"><strong>Tautan tidak valid</strong>Tautan sudah kedaluwarsa. <Link to="/lupa-password">Minta tautan baru</Link>.</p>
       ) : (
         <form onSubmit={kirim} className="auth-form">
-          <Kolom label="Kata sandi baru (minimal 8 karakter)" name="password" type="password" autoComplete="new-password" minLength={8} required />
-          <Kolom label="Ulangi kata sandi" name="ulang" type="password" autoComplete="new-password" minLength={8} required />
+          <Sandi label="Kata sandi baru (minimal 8 karakter)" name="password" autoComplete="new-password" minLength={8} required />
+          <Sandi label="Ulangi kata sandi" name="ulang" autoComplete="new-password" minLength={8} required />
           {galat && <p className="pesan galat" role="alert">{galat}</p>}
           <button className="btn isi auth-tombol" type="submit" disabled={sibuk || memuat}>{sibuk ? 'Menyimpan…' : 'Simpan Kata Sandi'}</button>
         </form>
