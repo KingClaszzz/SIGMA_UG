@@ -6,7 +6,7 @@ import MahasiswaShell from './mahasiswa/MahasiswaShell.jsx';
 import Dashboard from './mahasiswa/Dashboard.jsx';
 import Profile from './mahasiswa/Profile.jsx';
 import { AjukanRekomendasi, DetailRekomendasi, RiwayatRekomendasi } from './mahasiswa/SuratRekomendasi.jsx';
-import KonversiSks, { AjukanKonversi, DetailKonversi, RiwayatKonversi } from './mahasiswa/KonversiSks.jsx';
+import KonversiSks, { AjukanKonversi, DetailKonversi, LaporMandiri, RiwayatKonversi } from './mahasiswa/KonversiSks.jsx';
 import DokumenMagang from './mahasiswa/DokumenMagang.jsx';
 import AdminShell from './admin/AdminShell.jsx';
 import DashboardAdmin from './admin/Dashboard.jsx';
@@ -43,6 +43,8 @@ export default function App() {
         <Route path="/konversi-sks" element={<KonversiSks />} />
         <Route path="/konversi-sks/ajukan" element={<AjukanKonversi />} />
         <Route path="/konversi-sks/ajukan/:id" element={<AjukanKonversi />} />
+        <Route path="/konversi-sks/mandiri" element={<LaporMandiri />} />
+        <Route path="/konversi-sks/mandiri/:id" element={<LaporMandiri />} />
         <Route path="/konversi-sks/riwayat" element={<RiwayatKonversi />} />
         <Route path="/konversi-sks/riwayat/:id" element={<DetailKonversi />} />
         <Route path="/dokumen-magang/:tab?" element={<DokumenMagang />} />

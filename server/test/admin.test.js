@@ -277,3 +277,15 @@ test('NPM: cek ketersediaan untuk pendaftaran, lepas NPM hanya bila akun belum p
   const { rows: [u] } = await db.query("SELECT is_aktif FROM users WHERE email = 'iseng@uji.test'");
   assert.equal(u.is_aktif, false);
 });
+
+test('detail mahasiswa admin menampilkan jenis dan surat penerimaan riwayat magang', async () => {
+  const idP = await pengajuan(A, 'diterbitkan');
+  const loc = await storage.simpan(Buffer.from('%PDF-1.4\n%mandiri\n'), 'mandiri');
+  const { rows: [pen] } = await db.query("INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, file_surat_penerimaan, pilih_konversi, status) VALUES ($1, 'QA Intern', '2027-02-01', '2027-05-01', $2, false, 'diterima_perusahaan') RETURNING id_penerimaan", [idP, loc]);
+  await db.query("INSERT INTO riwayat_magang (id_mahasiswa, nama_perusahaan, tahun, sumber, id_penerimaan) VALUES ($1, 'PT Uji', 2027, 'sistem', $2)", [A, pen.id_penerimaan]);
+  const detail = (await ADM('GET', `/mahasiswa/${A}`)).data;
+  const entri = detail.riwayat_magang.find((r) => r.id_penerimaan === pen.id_penerimaan);
+  assert.deepEqual([entri.jenis, entri.posisi, entri.surat_penerimaan], ['mandiri', 'QA Intern', true]);
+  assert.equal((await ADM('GET', `/mahasiswa/${A}/penerimaan/${pen.id_penerimaan}/surat`)).tipe, 'application/pdf');
+  assert.equal((await ADM('GET', `/mahasiswa/${B}/penerimaan/${pen.id_penerimaan}/surat`)).status, 404);
+});

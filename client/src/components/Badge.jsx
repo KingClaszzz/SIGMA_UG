@@ -8,6 +8,7 @@ const status = {
   disetujui: ['Disetujui', 'hijau'],
   ditolak: ['Ditolak', 'merah'],
   diterbitkan: ['Diterbitkan', 'hijau'],
+  diterima_perusahaan: ['Diterima Perusahaan', 'hijau'],
   selesai: ['Selesai', 'hijau'],
   // mahasiswa.status_verifikasi
   menunggu: ['Menunggu pemeriksaan', 'kuning'],

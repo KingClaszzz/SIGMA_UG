@@ -126,8 +126,31 @@ export default function routerAdmin({ db, storage, akun }) {
   r.get('/mahasiswa/:id', async (req, res) => {
     const m = await satu(db, `${MHS_SQL} WHERE m.id_mahasiswa = $1`, [Number(req.params.id)]);
     if (!m) throw new Galat(404, 'Mahasiswa tidak ditemukan.');
-    const riwayat = await q(db, 'SELECT id_riwayat AS id, nama_perusahaan, tahun, sumber FROM riwayat_magang WHERE id_mahasiswa = $1 ORDER BY tahun, id_riwayat', [m.id_mahasiswa]);
+    const rows = await q(db, `SELECT r.id_riwayat AS id, r.nama_perusahaan, r.tahun, r.sumber, r.id_penerimaan,
+        n.posisi, n.tgl_mulai, n.tgl_selesai, n.pilih_konversi, n.file_surat_penerimaan
+      FROM riwayat_magang r LEFT JOIN penerimaan_magang n USING (id_penerimaan)
+      WHERE r.id_mahasiswa = $1 ORDER BY r.tahun, r.id_riwayat`, [m.id_mahasiswa]);
+    const riwayat = rows.map((r) => ({
+      id: r.id,
+      nama_perusahaan: r.nama_perusahaan,
+      tahun: r.tahun,
+      sumber: r.sumber,
+      id_penerimaan: r.id_penerimaan,
+      posisi: r.posisi ?? null,
+      tgl_mulai: r.tgl_mulai ?? null,
+      tgl_selesai: r.tgl_selesai ?? null,
+      jenis: r.id_penerimaan ? (r.pilih_konversi ? 'konversi' : 'mandiri') : null,
+      surat_penerimaan: Boolean(r.file_surat_penerimaan),
+    }));
     res.json({ ...barisMahasiswa(m), riwayat_magang: riwayat, batas_magang: BATAS_MAGANG });
+  });
+
+  r.get('/mahasiswa/:id/penerimaan/:idPenerimaan/surat', async (req, res) => {
+    const n = await satu(db, `SELECT n.file_surat_penerimaan FROM penerimaan_magang n
+      JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan
+      WHERE p.id_mahasiswa = $1 AND n.id_penerimaan = $2`, [Number(req.params.id), Number(req.params.idPenerimaan)]);
+    if (!n?.file_surat_penerimaan) throw new Galat(404, 'Berkas tidak ditemukan.');
+    kirimPdf(res, await storage.baca(n.file_surat_penerimaan), 'surat-penerimaan.pdf');
   });
 
   r.put('/mahasiswa/:id/verifikasi', async (req, res) => {

@@ -150,7 +150,6 @@ export default function Landing() {
       <section className="hero">
         <div className="wrap hero-isi">
           <div className="hero-teks">
-            <p className="hero-label masuk"><span className="titik" />Sistem Informasi Gerbang Magang Akademik</p>
             <h1 className="masuk" style={{ '--urut': 1 }}>Program<br />Magang Akademik</h1>
             <p className="hero-lead masuk" style={{ '--urut': 2 }}>
               SIGMA UG menginformasikan syarat mahasiswa, periode pengajuan surat permohonan magang, konfirmasi penerimaan, hingga konversi mata kuliah magang bagi seluruh mahasiswa Prodi Sistem Informasi.
@@ -166,7 +165,7 @@ export default function Landing() {
               </a>
             </div>
             <ul className="hero-poin masuk" style={{ '--urut': 4 }}>
-              <li>Satu pintu, tanpa WhatsApp</li>
+              <li>Satu pintu</li>
               <li>Surat terbit otomatis</li>
               <li>Status bisa dipantau</li>
             </ul>

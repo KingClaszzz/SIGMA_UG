@@ -19,10 +19,11 @@
 .baris-dok + .baris-dok { margin-top: 10px; }
 .tabel-hasil .total td { font-weight: 700; }
 .kartu-pilih { display: grid; gap: 10px; margin-top: 12px; }
-.kartu-pilih a { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--grey-92); border-radius: 12px; transition: border-color 0.18s, transform 0.18s var(--ease), box-shadow 0.18s; }
-.kartu-pilih a:hover { border-color: var(--violet-45); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(58, 35, 85, 0.08); }
+.kartu-pilih > a, .kartu-pilih-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border: 1px solid var(--grey-92); border-radius: 12px; transition: border-color 0.18s, transform 0.18s var(--ease), box-shadow 0.18s; }
+.kartu-pilih > a:hover, .kartu-pilih-item:hover { border-color: var(--violet-45); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(58, 35, 85, 0.08); }
 .kartu-pilih strong { display: block; font-size: 14px; }
 .kartu-pilih small { color: var(--violet-39); font-family: var(--font-inter); }
+.kartu-pilih-aksi { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Dokumen Magang */
 .ringkas-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }

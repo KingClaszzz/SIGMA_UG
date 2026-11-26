@@ -247,8 +247,72 @@ export default function routerMahasiswa({ db, storage }) {
     kirimPdf(res, await storage.baca(s.file_pdf), `${s.nomor_surat.replaceAll('/', '-')}.pdf`);
   });
 
-  // ---------- konversi SKS (FR-06, FR-07, FR-08; UI-08, UI-09) ----------
+  // ---------- penerimaan magang & konversi SKS (FR-06, FR-07, FR-08; UI-08, UI-09) ----------
   // Satu pengajuan_konversi selalu bertaut ke satu penerimaan_magang (SDD tabel 10 dan 11).
+  // Mahasiswa yang tidak mengambil konversi hanya membuat penerimaan_magang (pilih_konversi = FALSE) tanpa pengajuan_konversi (US-11, US-12).
+  async function buatPenerimaan(c, user, idPengajuan, body, pilihKonversi) {
+    const m = await perluProfil(c, user);
+    const [p] = await muatPengajuan(c, m.id_mahasiswa, Number(idPengajuan));
+    if (!p) throw new Galat(404, 'Surat rekomendasi tidak ditemukan.');
+    if (p.status !== 'diterbitkan') throw new Galat(409, 'Surat rekomendasi belum diterbitkan.');
+    if (p.punya_konversi) throw new Galat(409, 'Surat rekomendasi ini sudah memiliki laporan penerimaan atau pengajuan konversi.');
+    salah(validasiPenerimaan(body));
+    const { id_penerimaan: idPenerimaan } = await satu(
+      c,
+      "INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, pilih_konversi, status) VALUES ($1, $2, $3, $4, $5, 'draft') RETURNING id_penerimaan",
+      [p.id, ...kolomPenerimaan(body), pilihKonversi],
+    );
+    return { m, p, idPenerimaan };
+  }
+
+  // Mengunggah PDF ke satu kolom tabel lalu menghapus berkas lama bila berhasil; bila gagal di DB, berkas baru dibersihkan.
+  async function simpanBerkasTabel({ tabel, kunci, idNilai, kolom, folder, buffer }) {
+    const lama = await satu(db, `SELECT ${kolom} AS file FROM ${tabel} WHERE ${kunci} = $1`, [idNilai]);
+    const lokasi = await storage.simpan(buffer, folder);
+    try {
+      await db.query(`UPDATE ${tabel} SET ${kolom} = $1 WHERE ${kunci} = $2`, [lokasi, idNilai]);
+    } catch (e) {
+      await storage.hapus(lokasi);
+      throw e;
+    }
+    await storage.hapus(lama?.file);
+  }
+
+  // Magang yang sudah diterima perusahaan (baik konversi maupun mandiri) dicatat sekali ke riwayat_magang (BR-03).
+  async function catatRiwayatPenerimaan(c, idMhs, namaPerusahaan, tglMulai, idPengajuan) {
+    await c.query("UPDATE penerimaan_magang SET status = 'diterima_perusahaan' WHERE id_pengajuan = $1", [idPengajuan]);
+    await c.query(`INSERT INTO riwayat_magang (id_mahasiswa, nama_perusahaan, tahun, sumber, id_penerimaan)
+      SELECT $1, $2, $3, 'sistem', n.id_penerimaan FROM penerimaan_magang n WHERE n.id_pengajuan = $4
+        AND NOT EXISTS (SELECT 1 FROM riwayat_magang r WHERE r.id_penerimaan = n.id_penerimaan)`,
+    [idMhs, namaPerusahaan, Number(tglMulai.slice(0, 4)), idPengajuan]);
+  }
+
+  async function muatPenerimaanMandiri(c, idMhs, id) {
+    const rows = await q(c, `SELECT n.*, p.nama_perusahaan, p.alamat_perusahaan, p.dibuat_pada AS rek_dibuat_pada
+      FROM penerimaan_magang n JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan
+      WHERE p.id_mahasiswa = $1 AND n.pilih_konversi = FALSE ${id ? 'AND n.id_penerimaan = $2' : ''} ORDER BY n.id_penerimaan`, id ? [idMhs, id] : [idMhs]);
+    return rows.map((n) => ({
+      id: n.id_penerimaan,
+      id_pengajuan: n.id_pengajuan,
+      nomor_rekomendasi: nomorDari('REK', n.rek_dibuat_pada, n.id_pengajuan),
+      status: n.status,
+      pilih_konversi: false,
+      nama_perusahaan: n.nama_perusahaan,
+      alamat_perusahaan: n.alamat_perusahaan,
+      posisi: n.posisi,
+      tgl_mulai: n.tgl_mulai,
+      tgl_selesai: n.tgl_selesai,
+      surat_penerimaan: n.file_surat_penerimaan ? { nama: 'Surat penerimaan.pdf' } : null,
+    }));
+  }
+  async function penerimaanSaya(c, user, id, { draft = false } = {}) {
+    const m = await perluProfil(c, user);
+    const [n] = await muatPenerimaanMandiri(c, m.id_mahasiswa, Number(id));
+    if (!n) throw new Galat(404, 'Laporan penerimaan magang tidak ditemukan.');
+    if (draft && n.status !== 'draft') throw new Galat(409, 'Laporan penerimaan yang sudah dikirim tidak dapat diubah.');
+    return { m, n };
+  }
+
   async function muatKonversi(c, idMhs, id) {
     const rows = await q(c, `SELECT k.*, n.id_pengajuan, n.posisi, n.tgl_mulai, n.tgl_selesai, n.file_surat_penerimaan, p.nama_perusahaan
       FROM pengajuan_konversi k JOIN penerimaan_magang n ON n.id_penerimaan = k.id_penerimaan JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan
@@ -298,6 +362,7 @@ export default function routerMahasiswa({ db, storage }) {
     res.json({
       siap_diajukan: siap.map((p) => ({ id: p.id, nomor: nomorDari('REK', p.dibuat_pada, p.id), nama_perusahaan: p.nama_perusahaan })),
       konversi: (await muatKonversi(db, m.id_mahasiswa)).reverse(),
+      mandiri: (await muatPenerimaanMandiri(db, m.id_mahasiswa)).reverse(),
       template_tersedia: fs.existsSync(TEMPLATE_SILABUS),
     });
   });
@@ -307,20 +372,64 @@ export default function routerMahasiswa({ db, storage }) {
     res.download(TEMPLATE_SILABUS);
   });
 
+  // --- Magang mandiri tanpa konversi SKS (UC-11, pilih_konversi = FALSE) ---
+  r.get('/penerimaan/:id', async (req, res) => res.json((await penerimaanSaya(db, req.user, req.params.id)).n));
+
+  r.post('/penerimaan', async (req, res) => {
+    const b = req.body ?? {};
+    res.status(201).json(await db.transaksi(async (c) => {
+      const { m, idPenerimaan } = await buatPenerimaan(c, req.user, b.id_pengajuan, b, false);
+      return (await muatPenerimaanMandiri(c, m.id_mahasiswa, idPenerimaan))[0];
+    }));
+  });
+
+  r.put('/penerimaan/:id', async (req, res) => {
+    res.json(await db.transaksi(async (c) => {
+      const { m, n } = await penerimaanSaya(c, req.user, req.params.id, { draft: true });
+      salah(validasiPenerimaan(req.body ?? {}));
+      await c.query('UPDATE penerimaan_magang SET posisi = $1, tgl_mulai = $2, tgl_selesai = $3 WHERE id_penerimaan = $4', [...kolomPenerimaan(req.body), n.id]);
+      return (await muatPenerimaanMandiri(c, m.id_mahasiswa, n.id))[0];
+    }));
+  });
+
+  r.delete('/penerimaan/:id', async (req, res) => {
+    const { n } = await penerimaanSaya(db, req.user, req.params.id, { draft: true });
+    const row = await satu(db, "DELETE FROM penerimaan_magang WHERE id_penerimaan = $1 AND status = 'draft' RETURNING file_surat_penerimaan", [n.id]);
+    await storage.hapus(row?.file_surat_penerimaan);
+    res.json({ ok: true });
+  });
+
+  r.post('/penerimaan/:id/surat-penerimaan', pdf, async (req, res) => {
+    const isi = dokumenPdf(req);
+    const { m, n } = await penerimaanSaya(db, req.user, req.params.id, { draft: true });
+    await simpanBerkasTabel({ tabel: 'penerimaan_magang', kunci: 'id_penerimaan', idNilai: n.id, kolom: 'file_surat_penerimaan', folder: `mahasiswa/${m.id_mahasiswa}/penerimaan`, buffer: isi });
+    res.json((await muatPenerimaanMandiri(db, m.id_mahasiswa, n.id))[0]);
+  });
+
+  r.get('/penerimaan/:id/surat-penerimaan', async (req, res) => {
+    const { n } = await penerimaanSaya(db, req.user, req.params.id);
+    const d = await satu(db, 'SELECT file_surat_penerimaan AS file FROM penerimaan_magang WHERE id_penerimaan = $1', [n.id]);
+    if (!d?.file) throw new Galat(404, 'Berkas belum tersedia.');
+    kirimPdf(res, await storage.baca(d.file), 'surat-penerimaan.pdf');
+  });
+
+  r.post('/penerimaan/:id/kirim', async (req, res) => {
+    res.json(await db.transaksi(async (c) => {
+      const { m, n } = await penerimaanSaya(c, req.user, req.params.id, { draft: true });
+      if (!n.surat_penerimaan) throw new Galat(400, 'Surat penerimaan perusahaan belum diunggah.');
+      await catatRiwayatPenerimaan(c, m.id_mahasiswa, n.nama_perusahaan, n.tgl_mulai, n.id_pengajuan);
+      return (await muatPenerimaanMandiri(c, m.id_mahasiswa, n.id))[0];
+    }));
+  });
+
   r.get('/konversi/:id', async (req, res) => res.json((await konversiSaya(db, req.user, req.params.id)).k));
 
   r.post('/konversi', async (req, res) => {
-    const b = req.body;
+    const b = req.body ?? {};
     res.status(201).json(await db.transaksi(async (c) => {
-      const m = await perluProfil(c, req.user);
       await wajibDibuka(c, 'konversi', 'pengajuan konversi SKS');
-      const [p] = await muatPengajuan(c, m.id_mahasiswa, Number(b.id_pengajuan));
-      if (!p) throw new Galat(404, 'Surat rekomendasi tidak ditemukan.');
-      if (p.status !== 'diterbitkan') throw new Galat(409, 'Surat rekomendasi belum diterbitkan.');
-      if (p.punya_konversi) throw new Galat(409, 'Surat rekomendasi ini sudah punya pengajuan konversi.');
-      salah(validasiPenerimaan(b));
-      const { id_penerimaan: n } = await satu(c, "INSERT INTO penerimaan_magang (id_pengajuan, posisi, tgl_mulai, tgl_selesai, pilih_konversi, status) VALUES ($1, $2, $3, $4, TRUE, 'draft') RETURNING id_penerimaan", [p.id, ...kolomPenerimaan(b)]);
-      const { id_konversi: k } = await satu(c, "INSERT INTO pengajuan_konversi (id_penerimaan, status) VALUES ($1, 'draft') RETURNING id_konversi", [n]);
+      const { m, idPenerimaan } = await buatPenerimaan(c, req.user, b.id_pengajuan, b, true);
+      const { id_konversi: k } = await satu(c, "INSERT INTO pengajuan_konversi (id_penerimaan, status) VALUES ($1, 'draft') RETURNING id_konversi", [idPenerimaan]);
       await c.query("INSERT INTO riwayat_status (jenis_objek, id_objek, status_baru, diubah_oleh) VALUES ('pengajuan_konversi', $1, 'draft', $2)", [k, req.user.id_user]);
       return (await muatKonversi(c, m.id_mahasiswa, k))[0];
     }));
@@ -344,15 +453,7 @@ export default function routerMahasiswa({ db, storage }) {
     r.post(`/konversi/:id/${rute}`, pdf, async (req, res) => {
       const isi = dokumenPdf(req);
       const { m, k } = await konversiSaya(db, req.user, req.params.id, { ubah: true });
-      const lama = await satu(db, `SELECT ${b.kolom} AS file FROM ${b.tabel} WHERE ${b.kunci} = $1`, [b.nilai(k)]);
-      const lokasi = await storage.simpan(isi, `mahasiswa/${m.id_mahasiswa}/konversi`);
-      try {
-        await db.query(`UPDATE ${b.tabel} SET ${b.kolom} = $1 WHERE ${b.kunci} = $2`, [lokasi, b.nilai(k)]);
-      } catch (e) {
-        await storage.hapus(lokasi);
-        throw e;
-      }
-      await storage.hapus(lama?.file);
+      await simpanBerkasTabel({ tabel: b.tabel, kunci: b.kunci, idNilai: b.nilai(k), kolom: b.kolom, folder: `mahasiswa/${m.id_mahasiswa}/konversi`, buffer: isi });
       res.json((await muatKonversi(db, m.id_mahasiswa, k.id))[0]);
     });
     r.get(`/konversi/:id/${rute}`, async (req, res) => {
@@ -370,11 +471,7 @@ export default function routerMahasiswa({ db, storage }) {
       await batasKirim(c, req.user, m.id_mahasiswa, 'pengajuan_konversi', 'konversi SKS');
       if (!k.surat_penerimaan) throw new Galat(400, 'Surat penerimaan perusahaan belum diunggah.');
       if (!k.silabus) throw new Galat(400, 'Silabus magang belum diunggah.');
-      await c.query("UPDATE penerimaan_magang SET status = 'diterima_perusahaan' WHERE id_pengajuan = $1", [k.id_pengajuan]);
-      // Magang yang dikonversi ikut dihitung pada batas dua kali (BR-03); dicatat sekali saja per penerimaan.
-      await c.query(`INSERT INTO riwayat_magang (id_mahasiswa, nama_perusahaan, tahun, sumber, id_penerimaan)
-        SELECT $1, $2, $3, 'sistem', n.id_penerimaan FROM penerimaan_magang n WHERE n.id_pengajuan = $4
-          AND NOT EXISTS (SELECT 1 FROM riwayat_magang r WHERE r.id_penerimaan = n.id_penerimaan)`, [m.id_mahasiswa, k.nama_perusahaan, Number(k.tgl_mulai.slice(0, 4)), k.id_pengajuan]);
+      await catatRiwayatPenerimaan(c, m.id_mahasiswa, k.nama_perusahaan, k.tgl_mulai, k.id_pengajuan);
       await c.query('UPDATE pengajuan_konversi SET alasan_penolakan = NULL WHERE id_konversi = $1', [k.id]);
       await catat(c, 'pengajuan_konversi', k.id, k.status, 'diajukan', req.user.id_user);
       return (await muatKonversi(c, m.id_mahasiswa, k.id))[0];
