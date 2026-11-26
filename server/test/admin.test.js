@@ -215,9 +215,13 @@ test('periode: draft tidak tampil di publik, publikasi menampilkan jadwal konver
   await db.query('DELETE FROM periode_magang'); // mulai dari kosong
   const d2 = (await ADM('POST', '/periode', { ...dasar, status: 'draft', min_semester: 6 })).data;
   assert.equal((await publik()).tersedia, false);
-  const terbit = (await ADM('PUT', `/periode/${d2.id_periode}`, { ...dasar, status: 'dipublikasikan', tgl_buka_konversi: '2027-01-10', min_semester: 6, min_ipk: 3.25 })).data;
+  const terbit = (await ADM('PUT', `/periode/${d2.id_periode}`, {
+    ...dasar, status: 'dipublikasikan', tgl_buka_konversi: '2027-01-10', tgl_pengumuman: '2027-01-05',
+    tgl_mulai_pelaksanaan: '2027-01-15', tgl_selesai_pelaksanaan: '2027-04-15', min_semester: 6, min_ipk: 3.25,
+  })).data;
+  assert.equal((await ADM('PUT', `/periode/${d2.id_periode}`, { ...dasar, tgl_mulai_pelaksanaan: '2027-04-15', tgl_selesai_pelaksanaan: '2027-01-15' })).status, 400);
   const p = await publik();
-  assert.deepEqual([p.tersedia, p.jadwal[1].buka, p.min_semester, p.min_ipk], [true, '2027-01-10', 6, 3.25]);
+  assert.deepEqual([p.tersedia, p.jadwal[1].buka, p.min_semester, p.min_ipk, p.tgl_pengumuman, p.tgl_mulai_pelaksanaan, p.tgl_selesai_pelaksanaan], [true, '2027-01-10', 6, 3.25, '2027-01-05', '2027-01-15', '2027-04-15']);
   assert.ok(terbit.jadwal.length === 2 && draft.id_periode);
 
   // ambang periode dipakai evaluasi: semester 6 ke atas dan IPK 3.25

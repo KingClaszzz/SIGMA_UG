@@ -6,7 +6,7 @@ import { icon, logo } from '../assets';
 import Maskot from '../components/Maskot.jsx';
 import { Partikel } from './MaskotHero.jsx';
 import { useApi } from '../api';
-import { labelBulan, rentang, sisaHari } from '../format';
+import { labelBulan, rentang, rentangOpsional, sisaHari, tanggalPanjang } from '../format';
 import './landing.css';
 
 const kartuPeriode = {
@@ -195,6 +195,30 @@ export default function Landing() {
               </div>
             )}
           </div>
+          {periode?.tersedia && (periode.tgl_pengumuman || periode.tgl_mulai_pelaksanaan || periode.tgl_selesai_pelaksanaan || periode.batas_laporan) && (
+            <div className="jadwal-rinci reveal">
+              {periode.tgl_pengumuman && (
+                <div>
+                  <small>Pengumuman / Konfirmasi</small>
+                  <strong>{tanggalPanjang(periode.tgl_pengumuman)}</strong>
+                </div>
+              )}
+              {(periode.tgl_mulai_pelaksanaan || periode.tgl_selesai_pelaksanaan) && (
+                <div>
+                  <small>Pelaksanaan Magang</small>
+                  <strong>{rentangOpsional(periode.tgl_mulai_pelaksanaan, periode.tgl_selesai_pelaksanaan)}</strong>
+                </div>
+              )}
+              {periode.batas_laporan && (
+                <div>
+                  <small>Pengumpulan Laporan &amp; Sertifikat</small>
+                  <strong>
+                    {periode.tgl_buka_dokumen ? rentang(periode.tgl_buka_dokumen, periode.batas_laporan) : `Maks. ${tanggalPanjang(periode.batas_laporan)}`}
+                  </strong>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

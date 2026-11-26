@@ -10,7 +10,8 @@ import { tanggalAngka, tanggalPanjang } from '../format';
 
 const KOSONG = {
   tahun_akademik: '', gelombang: '1', nama_periode: '', deskripsi: '', semester: '',
-  tgl_buka: '', tgl_tutup: '', tgl_buka_konversi: '', batas_konversi: '', tgl_buka_dokumen: '', batas_laporan: '',
+  tgl_buka: '', tgl_tutup: '', tgl_pengumuman: '', tgl_mulai_pelaksanaan: '', tgl_selesai_pelaksanaan: '',
+  tgl_buka_konversi: '', batas_konversi: '', tgl_buka_dokumen: '', batas_laporan: '',
   min_semester: '5', min_ipk: '3.00', ketentuan: '',
 };
 const DARI = (p) => Object.fromEntries(Object.keys(KOSONG).map((k) => [k, p[k] == null ? '' : String(p[k])]));
@@ -111,6 +112,15 @@ export function DetailPeriode() {
         <section className="kartu"><h2>Jadwal Dokumen Magang</h2><dl className="kv-polos satu-kolom"><div><dt>Mulai</dt><dd>{tgl(p.tgl_buka_dokumen)}</dd></div><div><dt>Deadline</dt><dd>{tgl(p.batas_laporan)}</dd></div></dl></section>
       </div>
 
+      <section className="kartu">
+        <h2>Jadwal Pengumuman dan Pelaksanaan Magang</h2>
+        <dl className="kv-polos">
+          <div><dt>Pengumuman / Konfirmasi</dt><dd>{tgl(p.tgl_pengumuman)}</dd></div>
+          <div><dt>Mulai Pelaksanaan</dt><dd>{tgl(p.tgl_mulai_pelaksanaan)}</dd></div>
+          <div><dt>Selesai Pelaksanaan</dt><dd>{tgl(p.tgl_selesai_pelaksanaan)}</dd></div>
+        </dl>
+      </section>
+
       <div className="dua-kolom-admin rata">
         <section className="kartu">
           <h2>Ketentuan Magang</h2>
@@ -197,6 +207,15 @@ export function FormPeriode() {
             </div>
           </section>
         </div>
+
+        <section className="kartu">
+          <h2>Jadwal Pengumuman dan Pelaksanaan Magang (Opsional)</h2>
+          <div className="grid-form tiga">
+            <label>Pengumuman / Konfirmasi<input type="date" value={form.tgl_pengumuman} onChange={ubah('tgl_pengumuman')} /></label>
+            <label>Mulai Pelaksanaan<input type="date" value={form.tgl_mulai_pelaksanaan} onChange={ubah('tgl_mulai_pelaksanaan')} /></label>
+            <label>Selesai Pelaksanaan<input type="date" min={form.tgl_mulai_pelaksanaan} value={form.tgl_selesai_pelaksanaan} onChange={ubah('tgl_selesai_pelaksanaan')} /></label>
+          </div>
+        </section>
 
         <section className="kartu">
           <h2>Ketentuan Magang</h2>

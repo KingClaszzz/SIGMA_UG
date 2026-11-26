@@ -88,6 +88,9 @@
 .belum-periode strong { display: block; margin-bottom: 4px; font-size: 16px; font-weight: 600; }
 .belum-periode p { font-size: 14px; font-weight: 300; line-height: 1.65; }
 .belum-ikon { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--lp-kuning); font-size: 15px; font-weight: 700; color: var(--lp-ungu); }
+.jadwal-rinci { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 20px; padding: 18px 24px; border: 1px solid var(--lp-ungu-muda); border-radius: 16px; background: #fff; box-shadow: 0 6px 18px rgba(49, 22, 82, 0.06); }
+.jadwal-rinci small { display: block; font-size: 12px; color: #5a4c6d; }
+.jadwal-rinci strong { display: block; margin-top: 3px; font-size: 14px; font-weight: 600; color: var(--lp-ungu); }
 
 /* Tahapan */
 .tahapan { padding-block: 72px 80px; text-align: center; }

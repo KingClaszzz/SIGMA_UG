@@ -827,7 +827,7 @@ export default function routerAdmin({ db, storage, akun, email }) {
   // ---------- periode (FR-09) ----------
   function statusTampil(p) {
     if (p.status === 'draft') return 'draft';
-    const akhir = [p.tgl_tutup, p.batas_konversi, p.batas_laporan].filter(Boolean).sort().at(-1);
+    const akhir = [p.tgl_tutup, p.tgl_pengumuman, p.tgl_selesai_pelaksanaan, p.batas_konversi, p.batas_laporan].filter(Boolean).sort().at(-1);
     return hariIni() > akhir ? 'selesai' : 'aktif';
   }
   const periodeDari = (p) => ({ ...p, jadwal: jadwal(p), status_tampil: statusTampil(p) });
