@@ -187,7 +187,7 @@ export function DetailKonversiAdmin() {
                 </div>
               </section>
             )}
-            <section className="kartu"><h2>Riwayat Perubahan Status</h2><RiwayatStatus item={k.riwayat.map((x) => ({ judul: { diajukan: 'Pengajuan dikirim mahasiswa', ditinjau: 'Berkas diperiksa', diproses: 'Pemetaan disetujui', diterbitkan: 'Konversi disetujui dan surat diterbitkan' }[x.status] ?? x.status, pada: x.pada }))} /></section>
+            <section className="kartu"><h2>Riwayat Perubahan Status</h2><RiwayatStatus item={k.riwayat.map((x) => ({ judul: { diajukan: 'Pengajuan dikirim mahasiswa', ditinjau: 'Berkas diperiksa', diproses: 'Pemetaan disetujui', diterbitkan: 'Konversi disetujui dan surat diterbitkan', selesai: 'Dokumen akhir disetujui (Magang Selesai)' }[x.status] ?? x.status, pada: x.pada }))} /></section>
           </div>
         </div>
       ) : (

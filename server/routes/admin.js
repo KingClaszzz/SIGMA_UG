@@ -631,7 +631,8 @@ export default function routerAdmin({ db, storage, akun }) {
       }));
       return {
         ...x, status: d ? d.status_periksa : 'belum_diunggah', berkas: berkas(d?.nama_asli), catatan_dosen: d?.catatan_dosen ?? null,
-        diunggah_pada: iso(d?.diunggah_pada) ?? null, diperiksa_pada: iso(d?.diperiksa_pada) ?? null, pemeriksa: d?.pemeriksa ?? null, ttd_digital: d?.ttd_digital ?? false, riwayat,
+        diunggah_pada: iso(d?.diunggah_pada) ?? null, diperiksa_pada: iso(d?.diperiksa_pada) ?? null, pemeriksa: d?.pemeriksa ?? null,
+        ttd_digital: d?.ttd_digital ?? false, ada_ttd: Boolean(d?.file_ttd), ditandatangani_pada: iso(d?.ditandatangani_pada) ?? null, riwayat,
       };
     });
   }

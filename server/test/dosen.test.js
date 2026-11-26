@@ -117,6 +117,8 @@ test('pengesahan laporan akhir: hanya setelah disetujui, sekali saja, mahasiswa 
   const mhs = (await req('t-a', 'GET', '/mahasiswa/dokumen-magang')).data;
   assert.equal(mhs.dokumen[0].ada_ttd, true);
   assert.equal((await req('t-a', 'GET', '/mahasiswa/dokumen-magang/laporan_akhir/ttd')).status, 200);
+  const { rows: [dokTtd] } = await db.query("SELECT ttd_digital FROM dokumen_akhir WHERE id_penerimaan = $1 AND jenis_dokumen = 'laporan_akhir'", [mine.idPenerimaan]);
+  assert.equal(dokTtd.ttd_digital, true);
 });
 
 test('profil dan notifikasi dosen', async () => {
@@ -129,4 +131,24 @@ test('profil dan notifikasi dosen', async () => {
   assert.equal((await DSN('GET', '/notifikasi')).data.belum_dibaca, 0);
   assert.ok((await DSN('GET', '/riwayat')).data.length >= 3);
   assert.equal((await DSN('GET', `/bimbingan/${mine.idKonversi}`)).data.aktivitas.length >= 3, true);
+});
+
+test('menyetujui semua dokumen wajib mengubah status penerimaan dan konversi menjadi selesai', async () => {
+  await dokumen(mine.idPenerimaan, 'nilai_mitra');
+  assert.equal((await DSN('POST', `/bimbingan/${mine.idKonversi}/dokumen/nilai_mitra/periksa`, { setuju: true })).status, 200);
+  const { rows: [pen] } = await db.query('SELECT status FROM penerimaan_magang WHERE id_penerimaan = $1', [mine.idPenerimaan]);
+  const { rows: [konv] } = await db.query('SELECT status FROM pengajuan_konversi WHERE id_konversi = $1', [mine.idKonversi]);
+  const { rows: rw } = await db.query("SELECT status_baru FROM riwayat_status WHERE jenis_objek = 'pengajuan_konversi' AND id_objek = $1", [mine.idKonversi]);
+  assert.deepEqual([pen.status, konv.status], ['selesai', 'selesai']);
+  assert.equal(rw.some((x) => x.status_baru === 'selesai'), true);
+  assert.equal((await DSN('GET', `/bimbingan/${mine.idKonversi}`)).data.status_magang, 'selesai');
+
+  // unggah TTD manual tidak menandai ttd_digital = true
+  const manual = await bimbing('t-c', '11120003', dosen.id_dosen);
+  await dokumen(manual.idPenerimaan, 'laporan_akhir');
+  assert.equal((await DSN('POST', `/bimbingan/${manual.idKonversi}/dokumen/laporan_akhir/periksa`, { setuju: true })).status, 200);
+  assert.equal((await DSN('POST', `/bimbingan/${manual.idKonversi}/laporan/ttd-unggah`, { pdf: true })).status, 200);
+  const { rows: [dokManual] } = await db.query("SELECT file_ttd, ttd_digital FROM dokumen_akhir WHERE id_penerimaan = $1 AND jenis_dokumen = 'laporan_akhir'", [manual.idPenerimaan]);
+  assert.ok(dokManual.file_ttd);
+  assert.equal(dokManual.ttd_digital, false);
 });
