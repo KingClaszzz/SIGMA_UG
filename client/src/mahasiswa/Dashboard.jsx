@@ -6,7 +6,7 @@ import { Link, useOutletContext } from 'react-router-dom';
 import { icon } from '../assets';
 import { useApi } from '../api';
 import Badge from '../components/Badge.jsx';
-import { rentang, tanggalAngka, tanggalPanjang } from '../format';
+import { rentang, rentangOpsional, tanggalAngka, tanggalPanjang } from '../format';
 import './dashboard.css';
 
 const namaJadwal = { pengajuan: 'Pengajuan surat rekomendasi', konversi: 'Pengajuan konversi SKS' };
@@ -115,6 +115,32 @@ export default function Dashboard() {
                   <Badge nilai={j.status} />
                 </li>
               ))}
+              {periode.tgl_pengumuman && (
+                <li>
+                  <div>
+                    <p className="jadwal-nama">Pengumuman / konfirmasi penerimaan</p>
+                    <p className="stat-label">{tanggalPanjang(periode.tgl_pengumuman)}</p>
+                  </div>
+                </li>
+              )}
+              {(periode.tgl_mulai_pelaksanaan || periode.tgl_selesai_pelaksanaan) && (
+                <li>
+                  <div>
+                    <p className="jadwal-nama">Pelaksanaan magang</p>
+                    <p className="stat-label">{rentangOpsional(periode.tgl_mulai_pelaksanaan, periode.tgl_selesai_pelaksanaan)}</p>
+                  </div>
+                </li>
+              )}
+              {periode.batas_laporan && (
+                <li>
+                  <div>
+                    <p className="jadwal-nama">Pengumpulan dokumen &amp; laporan akhir</p>
+                    <p className="stat-label">
+                      {periode.tgl_buka_dokumen ? rentang(periode.tgl_buka_dokumen, periode.batas_laporan) : `Batas: ${tanggalPanjang(periode.batas_laporan)}`}
+                    </p>
+                  </div>
+                </li>
+              )}
             </ul>
           ) : (
             <p className="isi">Admin Prodi belum mengumumkan periode magang.</p>

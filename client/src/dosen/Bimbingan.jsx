@@ -37,7 +37,7 @@ export function DashboardDosen() {
           <p>{profil?.nama} · Pantau kegiatan magang dan periksa dokumen mahasiswa bimbingan Anda.</p>
         </div>
       </section>
-      <section className="ringkas-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+      <section className="ringkas-grid empat">
         {kartu.map(([label, angka]) => <div key={label} className="stat-kartu"><span className="angka">{angka}</span><span>{label}</span></div>)}
       </section>
 
@@ -169,7 +169,7 @@ export function DetailBimbingan() {
         </section>
       </div>
 
-      <div className="ringkas-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+      <div className="ringkas-grid empat">
         {b.dokumen.map((d) => (
           <section key={d.jenis} className="kartu">
             <h2 style={{ fontSize: 14 }}>{{ laporan_akhir: 'Laporan Akhir', nilai_mitra: 'Nilai Akhir Mitra', sertifikat: 'Sertifikat Magang', logbook: 'Logbook' }[d.jenis]}</h2>

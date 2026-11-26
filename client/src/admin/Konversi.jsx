@@ -35,9 +35,15 @@ export function DaftarKonversi() {
 
   return (
     <div className="halaman admin-lebar">
-      <header className="masuk">
-        <h1 className="judul">Penerimaan Konversi SKS</h1>
-        <p className="sub">Periksa berkas penerimaan dan silabus, petakan mata kuliah, lalu setujui konversi.</p>
+      <header className="halaman-kepala masuk">
+        <div>
+          <h1 className="judul">Penerimaan Konversi SKS</h1>
+          <p className="sub">Periksa berkas penerimaan dan silabus, petakan mata kuliah, lalu setujui konversi.</p>
+        </div>
+        <div className="aksi-keputusan" style={{ marginTop: 0 }}>
+          <Link to="/admin/mata-kuliah" className="btn garis kecil">Mata Kuliah</Link>
+          <Link to="/admin/template-surat?jenis=konversi" className="btn garis kecil">Template Surat</Link>
+        </div>
       </header>
       <Ringkasan />
       <section className="kartu">
@@ -187,7 +193,7 @@ export function DetailKonversiAdmin() {
                 </div>
               </section>
             )}
-            <section className="kartu"><h2>Riwayat Perubahan Status</h2><RiwayatStatus item={k.riwayat.map((x) => ({ judul: { diajukan: 'Pengajuan dikirim mahasiswa', ditinjau: 'Berkas diperiksa', diproses: 'Pemetaan disetujui', diterbitkan: 'Konversi disetujui dan surat diterbitkan' }[x.status] ?? x.status, pada: x.pada }))} /></section>
+            <section className="kartu"><h2>Riwayat Perubahan Status</h2><RiwayatStatus item={k.riwayat.map((x) => ({ judul: { diajukan: 'Pengajuan dikirim mahasiswa', ditinjau: 'Berkas diperiksa', diproses: 'Pemetaan disetujui', diterbitkan: 'Konversi disetujui dan surat diterbitkan', selesai: 'Dokumen akhir disetujui (Magang Selesai)' }[x.status] ?? x.status, pada: x.pada }))} /></section>
           </div>
         </div>
       ) : (

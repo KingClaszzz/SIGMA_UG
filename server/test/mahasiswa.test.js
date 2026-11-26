@@ -156,6 +156,7 @@ test('logbook: unggah PDF opsional; notifikasi mahasiswa', async () => {
   assert.equal((await A('GET', '/notifikasi')).data.belum_dibaca, 0);
 });
 
+<<<<<<< HEAD
 test('satu akun satu perangkat: perangkat kedua ditolak sampai yang pertama keluar atau diam', async () => {
   const C = (t) => req(t, 'GET', '/saya');
   assert.equal((await C('token-c1')).status, 200);
@@ -167,4 +168,35 @@ test('satu akun satu perangkat: perangkat kedua ditolak sampai yang pertama kelu
   await db.query("UPDATE users SET last_login = now() - interval '10 minutes' WHERE email = 'c@uji.test'");
   assert.equal((await C('token-c1')).status, 200); // pemegang sudah diam: diambil alih
   assert.equal((await C('token-c2')).data.kode, 'SESI_LAIN');
+=======
+test('magang mandiri tanpa konversi: lapor penerimaan, tercatat di riwayat, tidak duplikat dengan konversi', async () => {
+  await periode(30); // jendela konversi belum dibuka, tapi lapor magang mandiri tetap dibolehkan setelah surat rekomendasi terbit
+  const { data: p } = await A('POST', '/rekomendasi', { body: { ...form, nama_perusahaan: 'PT Mandiri Uji' } });
+  await db.query("UPDATE pengajuan_rekomendasi SET status = 'diterbitkan' WHERE id_pengajuan = $1", [p.id]);
+
+  // draft dapat dibuat lalu dihapus jika mahasiswa berubah pikiran
+  const draft = await A('POST', '/penerimaan', { body: { id_pengajuan: p.id, posisi: 'Analis', tgl_mulai: '2026-11-01', tgl_selesai: '2027-01-31' } });
+  assert.equal(draft.status, 201);
+  assert.equal(draft.data.pilih_konversi, false);
+  assert.equal((await A('POST', '/konversi', { body: { id_pengajuan: p.id, posisi: 'Analis', tgl_mulai: '2026-11-01', tgl_selesai: '2027-01-31' } })).status, 409);
+  assert.equal((await A('DELETE', `/penerimaan/${draft.data.id}`)).status, 200);
+
+  // buat ulang, unggah surat penerimaan, dan kirim
+  const { data: n } = await A('POST', '/penerimaan', { body: { id_pengajuan: p.id, posisi: 'Data Analyst', tgl_mulai: '2026-11-01', tgl_selesai: '2027-01-31' } });
+  assert.equal((await A('POST', `/penerimaan/${n.id}/kirim`)).status, 400); // surat penerimaan wajib
+  assert.equal((await A('POST', `/penerimaan/${n.id}/surat-penerimaan`, { berkas: PDF })).status, 200);
+  const terkirim = await A('POST', `/penerimaan/${n.id}/kirim`);
+  assert.equal(terkirim.status, 200);
+  assert.equal(terkirim.data.status, 'diterima_perusahaan');
+
+  // setelah dikirim tidak bisa diubah atau dihapus, serta muncul di daftar mandiri & riwayat_magang (BR-03)
+  assert.equal((await A('PUT', `/penerimaan/${n.id}`, { body: { posisi: 'Lain', tgl_mulai: '2026-11-01', tgl_selesai: '2027-01-31' } })).status, 409);
+  assert.equal((await A('DELETE', `/penerimaan/${n.id}`)).status, 409);
+  const daftar = (await A('GET', '/konversi')).data;
+  assert.equal(daftar.siap_diajukan.some((x) => x.id === p.id), false);
+  assert.equal(daftar.mandiri.some((x) => x.id === n.id && x.status === 'diterima_perusahaan'), true);
+  assert.equal((await A('GET', '/me')).data.riwayat_magang.some((r) => r.nama_perusahaan === 'PT Mandiri Uji' && r.sumber === 'sistem'), true);
+  const pdf = await fetch(`http://localhost:${server.address().port}/api/mahasiswa/penerimaan/${n.id}/surat-penerimaan`, { headers: { Authorization: 'Bearer token-a' } });
+  assert.equal(pdf.headers.get('content-type'), 'application/pdf');
+>>>>>>> 83f9885f73b0f66df0b1e9fa1a56ecb4f63a8278
 });

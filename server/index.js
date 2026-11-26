@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { buatApp } from './app.js';
 import { dbDariUrl } from './db.js';
+import { buatPengirimSmtp } from './email.js';
 import { storageSupabase } from './storage.js';
 import { verifikatorSupabase } from './auth.js';
 
@@ -32,5 +33,7 @@ const akun = {
   },
   hapus: (authId) => supabase.auth.admin.deleteUser(authId),
 };
-const app = buatApp({ db: dbDariUrl(DATABASE_URL), storage: storageSupabase(supabase, SUPABASE_BUCKET), verifikasi: verifikatorSupabase(supabase), akun });
+const kirimEmail = buatPengirimSmtp();
+if (!kirimEmail) console.warn('SMTP belum dikonfigurasi (SMTP_HOST/USER/PASS kosong); notifikasi email akan dicatat gagal.');
+const app = buatApp({ db: dbDariUrl(DATABASE_URL), storage: storageSupabase(supabase, SUPABASE_BUCKET), verifikasi: verifikatorSupabase(supabase), akun, kirimEmail });
 app.listen(PORT, () => console.log(`API siap di http://localhost:${PORT}`));

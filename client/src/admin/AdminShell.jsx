@@ -26,7 +26,7 @@ export default function AdminShell() {
   return <Isi />;
 }
 
-const inisial = (nama = '') => nama.split(/\s+/).filter(Boolean).slice(0, 2).map((k) => k[0].toUpperCase()).join('') || 'AD';
+export const inisial = (nama = '') => nama.split(/\s+/).filter(Boolean).slice(0, 2).map((k) => k[0].toUpperCase()).join('') || 'AD';
 
 function Isi() {
   const { data: saya } = useApi('/saya');
@@ -35,6 +35,7 @@ function Isi() {
     <Kerangka
       menu={menu}
       beranda="/admin"
+      profil="/admin/profil"
       chip={periode?.tersedia ? periode.tahun_akademik : 'Periode belum diumumkan'}
       nama={saya?.nama ?? ' '}
       sub="Admin"

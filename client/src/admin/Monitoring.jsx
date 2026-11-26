@@ -138,6 +138,7 @@ export function DetailMonitoring() {
                   <div><dt>Tanggal unggah</dt><dd>{tanggalAngka(d.diunggah_pada)}</dd></div>
                   <div><dt>Diperiksa oleh</dt><dd>{d.pemeriksa ?? '–'}</dd></div>
                   <div><dt>Tanggal pemeriksaan</dt><dd>{d.diperiksa_pada ? tanggalAngka(d.diperiksa_pada) : '–'}</dd></div>
+                  {d.jenis === 'laporan_akhir' && <div><dt>Pengesahan laporan</dt><dd>{d.ttd_digital ? 'Ditandatangani digital' : d.ada_ttd ? 'PDF bertanda tangan diunggah' : 'Belum ditandatangani'}</dd></div>}
                 </dl>
                 {d.catatan_dosen && <p className="banner-peringatan" style={{ marginTop: 10 }}><strong>Catatan dosen</strong>{d.catatan_dosen}</p>}
                 <DaftarPratinjau berkas={[{ kunci: d.jenis, label: d.label, nama: d.berkas?.nama, path: `/admin/monitoring/${k.id}/dokumen/${d.jenis}` }]} />

@@ -52,6 +52,14 @@ export default function Notifikasi({ dasar = '/admin' }) {
               ))}
             </ul>
           )}
+          {dasar === '/admin' && (
+            <div className="notif-kaki">
+              <Link to="/admin/notifikasi-email" role="menuitem" className="aksi-kecil" onClick={() => setOpen(false)}>
+                Log Pengiriman Email
+              </Link>
+              {data?.email_gagal > 0 && <span className="badge merah">{data.email_gagal} gagal</span>}
+            </div>
+          )}
         </div>
       )}
     </div>

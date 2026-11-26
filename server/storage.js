@@ -6,9 +6,9 @@ import crypto from 'node:crypto';
 export function storageSupabase(supabase, bucket) {
   const wadah = () => supabase.storage.from(bucket);
   return {
-    async simpan(buffer, folder) {
-      const lokasi = `${folder}/${crypto.randomUUID()}.pdf`;
-      const { error } = await wadah().upload(lokasi, buffer, { contentType: 'application/pdf' });
+    async simpan(buffer, folder, { ekstensi = 'pdf', tipe = 'application/pdf' } = {}) {
+      const lokasi = `${folder}/${crypto.randomUUID()}.${ekstensi}`;
+      const { error } = await wadah().upload(lokasi, buffer, { contentType: tipe });
       if (error) throw new Error(`Gagal menyimpan berkas: ${error.message}`);
       return lokasi;
     },
@@ -26,8 +26,8 @@ export function storageSupabase(supabase, bucket) {
 export function storageLokal(dir) {
   const penuh = (lokasi) => path.join(dir, ...lokasi.split('/'));
   return {
-    async simpan(buffer, folder) {
-      const lokasi = `${folder}/${crypto.randomUUID()}.pdf`;
+    async simpan(buffer, folder, { ekstensi = 'pdf' } = {}) {
+      const lokasi = `${folder}/${crypto.randomUUID()}.${ekstensi}`;
       await fs.mkdir(path.dirname(penuh(lokasi)), { recursive: true });
       await fs.writeFile(penuh(lokasi), buffer);
       return lokasi;

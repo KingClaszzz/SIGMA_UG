@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { icon } from '../assets';
 import { useApi } from '../api';
 import Badge from '../components/Badge.jsx';
-import { tanggalAngka, tanggalPanjang } from '../format';
+import { rentangOpsional, tanggalAngka, tanggalPanjang } from '../format';
 
 const TUJUAN = { rekomendasi: 'rekomendasi', konversi: 'konversi', dokumen: 'monitoring' };
 
@@ -24,9 +24,13 @@ export default function Dashboard() {
   if (!d) return <Muat />;
   const { ringkasan: r, periode } = d;
   const tenggat = periode && [
-    ['Pengajuan surat rekomendasi', periode.tgl_tutup, 'kuning'],
-    ['Pengajuan konversi SKS', periode.batas_konversi, 'kuning'],
-    ['Pengumpulan dokumen akhir', periode.batas_laporan, 'ungu'],
+    ['Pengajuan surat rekomendasi', periode.tgl_tutup ? tanggalPanjang(periode.tgl_tutup) : 'Belum ditetapkan', 'kuning'],
+    ...(periode.tgl_pengumuman ? [['Pengumuman / konfirmasi penerimaan', tanggalPanjang(periode.tgl_pengumuman), 'kuning']] : []),
+    ...(periode.tgl_mulai_pelaksanaan || periode.tgl_selesai_pelaksanaan
+      ? [['Pelaksanaan magang', rentangOpsional(periode.tgl_mulai_pelaksanaan, periode.tgl_selesai_pelaksanaan), 'ungu']]
+      : []),
+    ['Pengajuan konversi SKS', periode.batas_konversi ? tanggalPanjang(periode.batas_konversi) : 'Belum ditetapkan', 'kuning'],
+    ['Pengumpulan dokumen akhir', periode.batas_laporan ? tanggalPanjang(periode.batas_laporan) : 'Belum ditetapkan', 'ungu'],
   ];
 
   return (
@@ -74,7 +78,7 @@ export default function Dashboard() {
           {tenggat ? (
             <ol className="tenggat">
               {tenggat.map(([judul, tgl, warna]) => (
-                <li key={judul} className={warna}><strong>{judul}</strong><span>{tgl ? tanggalPanjang(tgl) : 'Belum ditetapkan'}</span></li>
+                <li key={judul} className={warna}><strong>{judul}</strong><span>{tgl}</span></li>
               ))}
             </ol>
           ) : (

@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, useAksi, useApi } from '../api';
 import Badge from '../components/Badge.jsx';
+import TautanBerkas from '../components/Berkas.jsx';
+import { tanggalAngka } from '../format';
 
 const ya = (v) => (v ? 'Ya' : 'Tidak');
 
@@ -47,7 +49,19 @@ export function DetailMahasiswa() {
         <div className="kartu-kepala"><h2>Riwayat magang</h2><span style={{ fontWeight: 700, color: 'var(--violet-24)' }}>{m.riwayat_magang.length} / {m.batas_magang}</span></div>
         {m.riwayat_magang.length === 0 ? <p className="kosong" style={{ marginTop: 8 }}>Belum ada riwayat magang.</p> : (
           <ul className="daftar-dok" style={{ marginTop: 12 }}>
-            {m.riwayat_magang.map((r) => <li key={r.id}><span>{r.nama_perusahaan} · {r.tahun}</span><span className="badge abu">{r.sumber === 'sistem' ? 'Tercatat sistem' : 'Diisi mahasiswa'}</span></li>)}
+            {m.riwayat_magang.map((r) => (
+              <li key={r.id}>
+                <span>
+                  {r.nama_perusahaan} · {r.tahun}
+                  {r.posisi ? ` · ${r.posisi}` : ''}
+                  {r.tgl_mulai && r.tgl_selesai ? ` (${tanggalAngka(r.tgl_mulai)} – ${tanggalAngka(r.tgl_selesai)})` : ''}
+                </span>
+                <span className="td-aksi" style={{ alignItems: 'center' }}>
+                  <span className="badge abu">{r.jenis === 'mandiri' ? 'Magang Mandiri' : r.jenis === 'konversi' ? 'Konversi SKS' : 'Diisi mahasiswa'}</span>
+                  {r.surat_penerimaan && <TautanBerkas className="aksi-kecil" path={`/admin/mahasiswa/${id}/penerimaan/${r.id_penerimaan}/surat`}>Lihat Surat</TautanBerkas>}
+                </span>
+              </li>
+            ))}
           </ul>
         )}
         <p className="catatan-kecil">Batas dua kali magang mencakup magang mandiri. Pastikan riwayat sesuai data akademik.</p>

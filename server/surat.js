@@ -248,14 +248,57 @@ function tabelMatkul(doc, matkul) {
   doc.y = y + h;
 }
 
+// Membaca isi templat dari bawaan (/templates/*.txt atau nama berkas) maupun penyimpanan unggahan.
+export async function bacaTeksTemplat(berkasTemplat, storage) {
+  if (berkasTemplat.startsWith('/templates/')) return fs.readFile(`${DIR_TEMPLAT}${berkasTemplat.slice('/templates/'.length)}`, 'utf8');
+  if (berkasTemplat.includes('/') && storage) return (await storage.baca(berkasTemplat)).toString('utf8');
+  return fs.readFile(`${DIR_TEMPLAT}${berkasTemplat}`, 'utf8');
+}
+
+const DATA_CONTOH = {
+  nomor_surat: '001/REK/SI-UG/XI/2026', kepada: 'HRD', perusahaan: 'PT Contoh', alamat_perusahaan: 'Depok',
+  nama: 'Mahasiswa Contoh', alamat: 'Depok', npm: '11123001', semester: 7, tahun_akademik: 'PTA 2026/2027',
+  no_hp: '081200000000', lama: '3 bulan', bulan_mulai: 'Februari 2027', bulan_selesai: 'Mei 2027',
+  tanggal_surat: '26-11-2026', angkatan: '2023', kegiatan: 'Magang Mandiri', total_sks: '12 (dua belas)',
+};
+const MATKUL_CONTOH = [{ kode_mk: 'IT01', nama_mk: 'Contoh MK', sks_diakui: 3, semester: 7, keterangan: 'Contoh' }];
+
+// Memastikan templat teks memakai @profil sesuai jenis surat dan dapat dirender menjadi PDF tanpa galat.
+export async function validasiTemplatSurat(teks, jenisHarus) {
+  const blok = teks.split(/\r?\n[ \t]*\r?\n/).map((b) => b.replace(/^\s+|\s+$/g, '').split(/\r?\n/)).filter((b) => b[0]);
+  const [arahan, namaProfil] = (blok[0]?.[0] ?? '').trim().split(/\s+/);
+  if (arahan !== '@profil' || namaProfil !== jenisHarus) {
+    return `Baris pertama template harus diawali "@profil ${jenisHarus}".`;
+  }
+  const angkaSah = (daftar, jumlah) => daftar.length >= jumlah && daftar.slice(0, jumlah).every((x) => Number.isFinite(Number(x)));
+  for (const [indeks, isiBlok] of blok.slice(1).entries()) {
+    const [kode, ...arg] = isiBlok[0].startsWith('@') ? isiBlok[0].trim().split(/\s+/) : [null];
+    const sisa = kode ? isiBlok.slice(1) : isiBlok;
+    const ke = `blok ke-${indeks + 2}`;
+    if (kode === '@kop' && (sisa.length < 2 || !sisa[0].trim() || !sisa[1].trim())) return `Arahan @kop (${ke}) minimal berisi 2 baris (judul dan SK).`;
+    if (kode === '@jarak' && !angkaSah(arg, 1)) return `Arahan @jarak (${ke}) harus diikuti angka spasi.`;
+    if (kode === '@baris' && (!angkaSah(arg, 3) || sisa.some((l) => !l.includes(':')))) return `Arahan @baris (${ke}) butuh 3 angka posisi dan ":" pada setiap baris.`;
+    if (kode === '@dua-kolom' && !angkaSah(arg, 2)) return `Arahan @dua-kolom (${ke}) butuh 2 angka posisi kolom.`;
+    if (kode === '@blok' && !angkaSah(arg, 1)) return `Arahan @blok (${ke}) butuh angka posisi kiri.`;
+    if (kode === '@ttd' && (!angkaSah(arg, 2) || Number(arg[1]) <= 0)) return `Arahan @ttd (${ke}) butuh posisi dan tinggi positif.`;
+    if (kode === '@daftar' && sisa.some((l) => !/^(\s*)(\S+)\s+(.*)$/.test(l))) return `Setiap baris di @daftar (${ke}) harus diawali penanda nomor/huruf diikuti spasi.`;
+  }
+  try {
+    await buatSuratPdf(null, DATA_CONTOH, MATKUL_CONTOH, { teksTemplat: teks });
+    return null;
+  } catch (e) {
+    return `Isi template belum dapat dirender menjadi PDF: ${e.message}`;
+  }
+}
+
 // data.ttd_gambar: PNG/JPG tanda tangan untuk @ttd; bila kosong dipakai ttd-kaprodi.png.
 // matkul: [{ kode_mk, nama_mk, sks_diakui, semester, keterangan }] untuk @tabel-matkul.
-export async function buatSuratPdf(berkasTemplat, data, matkul = []) {
-  const templat = await fs.readFile(`${DIR_TEMPLAT}${berkasTemplat}`, 'utf8');
+export async function buatSuratPdf(berkasTemplat, data, matkul = [], { teksTemplat, storage } = {}) {
+  const templat = teksTemplat ?? await bacaTeksTemplat(berkasTemplat, storage);
   const blok = templat.split(/\r?\n[ \t]*\r?\n/).map((b) => b.replace(/^\s+|\s+$/g, '').split(/\r?\n/)).filter((b) => b[0]);
   const [, namaProfil] = (blok.shift()?.[0] ?? '').trim().split(/\s+/);
   const P = PROFIL[namaProfil];
-  if (!P) throw new Error(`Templat ${berkasTemplat} harus diawali "@profil rekomendasi" atau "@profil konversi".`);
+  if (!P) throw new Error(`Templat ${berkasTemplat ?? ''} harus diawali "@profil rekomendasi" atau "@profil konversi".`);
   const logo = await fs.readFile(`${DIR_TEMPLAT}${P.logo}`).catch(() => null);
   // shortcut: ttd-kaprodi.png masih contoh (TTD Arya_Contoh); ganti berkasnya dengan TTD Ketua Prodi asli, atau admin mengunggah TTD saat menerbitkan.
   const ttd = data.ttd_gambar ?? (await fs.readFile(`${DIR_TEMPLAT}ttd-kaprodi.png`).catch(() => null));

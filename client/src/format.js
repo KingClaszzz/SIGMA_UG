@@ -12,6 +12,8 @@ export function rentang(buka, tutup) {
   return `${dari} – ${tanggalPanjang(tutup)}`;
 }
 
+export const rentangOpsional = (mulai, selesai) => (mulai && selesai ? rentang(mulai, selesai) : tanggalPanjang(mulai ?? selesai));
+
 // "JULI-AGUSTUS"
 export function labelBulan(buka, tutup) {
   const bulan = (iso) => tgl(iso).toLocaleDateString('id-ID', { ...opsi, month: 'long' }).toUpperCase();

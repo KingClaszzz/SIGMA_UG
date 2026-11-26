@@ -1,6 +1,7 @@
 import express from 'express';
 import { Galat } from './lib.js';
 import { pembatas } from './batas.js';
+import { buatLayananEmail } from './email.js';
 import routerPublik from './routes/publik.js';
 import routerMahasiswa from './routes/mahasiswa.js';
 import routerAdmin from './routes/admin.js';
@@ -37,13 +38,19 @@ function autentikasi({ db, verifikasi, gagalAuth }) {
       gagalAuth.catat(req.ip);
       throw new Galat(401, 'Sesi tidak valid atau sudah berakhir. Silakan masuk kembali.');
     }
+    const emailPengguna = id.email.trim().toLowerCase();
     let { rows: [user] } = await db.query('SELECT * FROM users WHERE auth_id = $1', [id.auth_id]);
     if (!user) {
-      ({ rows: [user] } = await db.query(
-        `INSERT INTO users (auth_id, email, nama, peran) VALUES ($1, $2, $3, 'mahasiswa')
-         ON CONFLICT (auth_id) DO UPDATE SET auth_id = EXCLUDED.auth_id RETURNING *`,
-        [id.auth_id, id.email, id.nama.slice(0, 60)],
-      ));
+      try {
+        ({ rows: [user] } = await db.query(
+          `INSERT INTO users (auth_id, email, nama, peran) VALUES ($1, $2, $3, 'mahasiswa')
+           ON CONFLICT (auth_id) DO UPDATE SET auth_id = EXCLUDED.auth_id RETURNING *`,
+          [id.auth_id, emailPengguna, id.nama.trim().slice(0, 60) || emailPengguna.split('@')[0]],
+        ));
+      } catch (e) {
+        if (e.code === '23505') throw new Galat(409, 'Email ini sudah terdaftar pada akun lain. Masuk menggunakan metode awal atau hubungi Admin Prodi.');
+        throw e;
+      }
     }
     if (!user.is_aktif) throw new Galat(403, 'Akun dinonaktifkan. Hubungi Admin Prodi.');
     await satuPerangkat(db, user, id.sesi);
@@ -64,8 +71,9 @@ const BATAS_BAWAAN = {
   tulis: { jendelaMs: 10 * 60_000, maks: 90 }, // POST/PUT/DELETE per pengguna (admin dihitung lebih longgar di bawah)
 };
 
-export function buatApp({ db, storage, verifikasi, akun, batas = {} }) {
+export function buatApp({ db, storage, verifikasi, akun, kirimEmail = null, batas = {} }) {
   const b = { ...BATAS_BAWAAN, ...batas };
+  const email = buatLayananEmail({ db, kirimEmail });
   const app = express();
   app.disable('x-powered-by');
   // Di belakang reverse proxy, isi TRUST_PROXY (jumlah proxy) agar req.ip adalah IP pengunjung, bukan IP proxy.
@@ -92,6 +100,7 @@ export function buatApp({ db, storage, verifikasi, akun, batas = {} }) {
   const tulis = pembatas({ ...b.tulis, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET', pesan: 'Terlalu banyak tindakan dalam waktu singkat. Tunggu beberapa menit lalu coba lagi.' });
   const tulisAdmin = pembatas({ ...b.tulis, maks: b.tulis.maks * 5, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET' });
   app.get('/api/saya', masuk, (req, res) => res.json({ peran: req.user.peran, nama: req.user.nama, email: req.user.email }));
+<<<<<<< HEAD
   // Keluar: lepaskan akun supaya bisa dipakai di perangkat lain tanpa menunggu.
   app.post('/api/keluar', masuk, async (req, res) => {
     await db.query('UPDATE users SET sesi_id = NULL WHERE id_user = $1', [req.user.id_user]);
@@ -100,6 +109,11 @@ export function buatApp({ db, storage, verifikasi, akun, batas = {} }) {
   app.use('/api/mahasiswa', masuk, wajibPeran('mahasiswa'), tulis, routerMahasiswa({ db, storage }));
   app.use('/api/admin', masuk, wajibPeran('admin'), tulisAdmin, routerAdmin({ db, storage, akun }));
   app.use('/api/dosen', masuk, wajibPeran('dosen'), tulisAdmin, routerDosen({ db, storage }));
+=======
+  app.use('/api/mahasiswa', masuk, wajibPeran('mahasiswa'), tulis, routerMahasiswa({ db, storage, email }));
+  app.use('/api/admin', masuk, wajibPeran('admin'), tulisAdmin, routerAdmin({ db, storage, akun, email }));
+  app.use('/api/dosen', masuk, wajibPeran('dosen'), tulisAdmin, routerDosen({ db, storage, email }));
+>>>>>>> 83f9885f73b0f66df0b1e9fa1a56ecb4f63a8278
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Alamat tidak ditemukan.' }));
 

@@ -1,16 +1,16 @@
 // Kerangka aplikasi bersama semua peran (sidebar + header). Tiap peran memberi menu dan identitasnya sendiri:
 // mahasiswa/MahasiswaShell.jsx, admin/AdminShell.jsx, dosen/DosenShell.jsx.
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { icon, logo } from '../assets';
 import { api } from '../api';
 import { keluar, useKeluarOtomatis } from '../auth/sesi';
 import Maskot from './Maskot.jsx';
 import './shell.css';
 
-function NavItem({ to, label, ikon, end }) {
+function NavItem({ to, label, ikon, end, onKlik }) {
   return (
-    <NavLink to={to} end={end} className={({ isActive }) => `nav-link${isActive ? ' aktif' : ''}`}>
+    <NavLink to={to} end={end} onClick={onKlik} className={({ isActive }) => `nav-link${isActive ? ' aktif' : ''}`}>
       <img src={icon(ikon)} alt="" width="20" height="20" />
       {label}
     </NavLink>
@@ -67,24 +67,54 @@ export default function Kerangka({ menu, beranda, chip, nama, sub, profil, avata
     return () => clearInterval(id);
   }, []);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [menuTerbuka, setMenuTerbuka] = useState(false);
+
+  useEffect(() => { setMenuTerbuka(false); }, [pathname]);
+  useEffect(() => {
+    if (!menuTerbuka) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setMenuTerbuka(false); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [menuTerbuka]);
+
+  const tutupDrawer = () => setMenuTerbuka(false);
+
   return (
     <div className="shell">
-      <aside className="aside">
-        <Link to={beranda} className="brand">
-          <img src={logo} alt="" width="44" height="44" />
-          SIGMA UG
-        </Link>
-        {menu.map(([to, label, ikon, end]) => <NavItem key={to} to={to} label={label} ikon={ikon} end={end} />)}
+      {menuTerbuka && <div className="drawer-latar" aria-hidden="true" onClick={tutupDrawer} />}
+      <aside className={`aside${menuTerbuka ? ' terbuka' : ''}`}>
+        <div className="aside-atas">
+          <Link to={beranda} className="brand" onClick={tutupDrawer}>
+            <img src={logo} alt="" width="44" height="44" />
+            SIGMA UG
+          </Link>
+          <button type="button" className="drawer-tutup" aria-label="Tutup menu navigasi" onClick={tutupDrawer}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+        {menu.map(([to, label, ikon, end]) => <NavItem key={to} to={to} label={label} ikon={ikon} end={end} onKlik={tutupDrawer} />)}
         {maskot ? <div className="aside-maskot"><Maskot pose={maskot} className="maskot-samping" /></div> : <span className="spacer" />}
-        {profil && <NavItem to={profil} label="Profil" ikon="nav-profil" />}
-        <button className="nav-link" onClick={async () => { await keluar(); navigate('/'); }}>
+        {profil && <NavItem to={profil} label="Profil" ikon="nav-profil" onKlik={tutupDrawer} />}
+        <button className="nav-link" onClick={async () => { tutupDrawer(); await keluar(); navigate('/'); }}>
           <img src={icon('nav-keluar')} alt="" width="20" height="20" />
           Keluar
         </button>
       </aside>
       <div className="kolom">
         <header className="header">
-          <span className="chip">{chip}</span>
+          <div className="header-kiri">
+            <button
+              type="button"
+              className="burger-btn"
+              aria-label="Buka menu navigasi"
+              aria-expanded={menuTerbuka}
+              onClick={() => setMenuTerbuka(true)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+            </button>
+            <span className="chip">{chip}</span>
+          </div>
           <div className="header-kanan">
             {lonceng}
             <UserMenu nama={nama} sub={sub} profil={profil} avatar={avatar} />

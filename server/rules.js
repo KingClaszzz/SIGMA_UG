@@ -70,13 +70,21 @@ export function validasiIdentitas(p) {
   return null;
 }
 
+export const validasiTelepon = (v) => (/^08\d{8,11}$/.test(v ?? '') ? null : 'Nomor telepon harus 10–13 digit dan diawali 08.');
+
 // US-02
 export function validasiProfil(p) {
   const ipk = Number(p.ipk);
   if (p.ipk === '' || p.ipk == null || !(ipk >= 0 && ipk <= 4)) return 'IPK harus berada pada rentang 0 sampai 4.';
   if (![5, 6, 7].includes(Number(p.semester))) return 'Semester harus 5, 6, atau 7.';
+<<<<<<< HEAD
   if (!/^08\d{8,11}$/.test(p.no_telepon ?? '')) return 'Nomor telepon harus 10–13 digit dan diawali 08.';
   if (!REGEX_ALAMAT.test(rapikanAlamat(p.alamat))) return 'Alamat tidak valid: 10–200 karakter, memuat huruf, dan hanya berisi huruf, angka, spasi, serta . , / - # ( ) : &.';
+=======
+  const tel = validasiTelepon(p.no_telepon);
+  if (tel) return tel;
+  if (!teks(p.alamat, 200) || p.alamat.trim().length < 10) return 'Alamat wajib diisi (10–200 karakter).';
+>>>>>>> 83f9885f73b0f66df0b1e9fa1a56ecb4f63a8278
   return null;
 }
 
@@ -207,7 +215,22 @@ export function validasiAkunDosen(d) {
   if (!teks(d.nama, 60)) return 'Nama wajib diisi (maksimal 60 karakter).';
   if (!/^[0-9A-Za-z]{5,20}$/.test((d.nidn ?? '').trim())) return 'NIDN harus 5–20 karakter (huruf atau angka).';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((d.email ?? '').trim()) || d.email.trim().length > 100) return 'Alamat email tidak valid.';
-  if (!/^08\d{8,11}$/.test(d.no_telepon ?? '')) return 'Nomor telepon harus 10–13 digit dan diawali 08.';
+  const tel = validasiTelepon(d.no_telepon);
+  if (tel) return tel;
   if ((d.password ?? '').length < 8 || d.password.length > 72) return 'Kata sandi awal minimal 8 karakter.';
+  return null;
+}
+
+export function validasiKategoriPerusahaan(k) {
+  if (!teks(k.nama_kategori, 50)) return 'Nama kategori perusahaan wajib diisi (maksimal 50 karakter).';
+  if (k.is_diizinkan !== undefined && typeof k.is_diizinkan !== 'boolean') return 'Status izin kategori tidak valid.';
+  return null;
+}
+
+export function validasiMetaTemplate(t) {
+  if (!['rekomendasi', 'konversi'].includes(t.jenis_surat)) return 'Jenis surat harus rekomendasi atau konversi.';
+  if (!teks(t.nama_template, 100)) return 'Nama template wajib diisi (maksimal 100 karakter).';
+  if (typeof t.isi_template !== 'string' || !t.isi_template.trim() || t.isi_template.includes('\0')) return 'Isi template harus berupa teks UTF-8 yang valid.';
+  if (Buffer.byteLength(t.isi_template, 'utf8') > 100 * 1024) return 'Ukuran template maksimal 100 KB.';
   return null;
 }

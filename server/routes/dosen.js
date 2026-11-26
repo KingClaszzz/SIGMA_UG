@@ -1,7 +1,7 @@
 // Rute Dosen Pendamping (/api/dosen). Dosen hanya melihat mahasiswa yang ditugaskan admin kepadanya (penugasan_dosen):
 // memantau dokumen akhir, memeriksa (setujui / minta perbaikan), dan mengesahkan laporan akhir (FR-14, FR-15).
 import express from 'express';
-import { Galat, iso, kirimPdf, q, salah, satu } from '../lib.js';
+import { Galat, catat, iso, kirimPdf, q, salah, satu } from '../lib.js';
 import { DOKUMEN_AKHIR, alasanSah, hariIni, pernahPerbaikan, tanggalSah, validasiPdf } from '../rules.js';
 import { bubuhiTandaTangan } from '../ttd.js';
 
@@ -18,7 +18,7 @@ const jenisSah = (j) => {
 };
 const kecil = (s) => `${s ?? ''}`.toLowerCase();
 
-export default function routerDosen({ db, storage }) {
+export default function routerDosen({ db, storage, email }) {
   const r = express.Router();
 
   r.use(async (req, _res, next) => {
@@ -32,7 +32,7 @@ export default function routerDosen({ db, storage }) {
   // Satu baris per mahasiswa bimbingan, lengkap dengan dokumennya.
   async function bimbingan(req, idKonversi = null) {
     const rows = await q(db, `SELECT k.id_konversi AS id, k.status AS status_konversi, n.id_penerimaan, n.posisi, n.tgl_mulai, n.tgl_selesai, p.nama_perusahaan, p.alamat_perusahaan, pr.tahun_akademik,
-        m.npm, m.semester, m.no_telepon, u.nama, u.email, pd.ditetapkan_pada
+        m.npm, m.semester, m.no_telepon, u.id_user, u.nama, u.email, pd.ditetapkan_pada
       FROM penugasan_dosen pd JOIN pengajuan_konversi k ON k.id_konversi = pd.id_konversi JOIN penerimaan_magang n ON n.id_penerimaan = k.id_penerimaan
       JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan LEFT JOIN periode_magang pr ON pr.id_periode = p.id_periode
       JOIN mahasiswa m ON m.id_mahasiswa = p.id_mahasiswa JOIN users u ON u.id_user = m.id_user
@@ -47,7 +47,7 @@ export default function routerDosen({ db, storage }) {
       };
     });
   }
-  const ringkas = ({ docs, id_penerimaan, ...x }) => x;
+  const ringkas = ({ docs, id_penerimaan, id_user, ...x }) => x;
   const cari = (req) => bimbingan(req, Number(req.params.id)).then(([b]) => {
     if (!b) throw new Galat(404, 'Mahasiswa bimbingan tidak ditemukan.');
     return b;
@@ -194,7 +194,8 @@ export default function routerDosen({ db, storage }) {
     const batas = req.body?.batas_revisi || null;
     if (!setuju) salah(alasanSah(req.body?.catatan)?.replace('penolakan', 'perbaikan'));
     if (batas && (!tanggalSah(batas) || batas < hariIni())) throw new Galat(400, 'Batas revisi harus berupa tanggal hari ini atau setelahnya.');
-    const d = dokumenDari(await cari(req), jenisSah(req.params.jenis));
+    const b = await cari(req);
+    const d = dokumenDari(b, jenisSah(req.params.jenis));
     if (!d) throw new Galat(404, 'Dokumen belum diunggah mahasiswa.');
     await db.transaksi(async (c) => {
       const hasil = await satu(c, `UPDATE dokumen_akhir SET status_periksa = $1, catatan_dosen = $2, batas_revisi = $3,
@@ -202,6 +203,25 @@ export default function routerDosen({ db, storage }) {
       [setuju ? 'disetujui' : 'perlu_perbaikan', setuju ? null : req.body.catatan.trim(), setuju ? null : batas, req.dosen.id_dosen, d.id_dokumen]);
       if (!hasil) throw new Galat(409, 'Dokumen ini sudah diperiksa. Tunggu mahasiswa mengunggah ulang.');
       await c.query('INSERT INTO riwayat_dokumen (id_dokumen, aksi, oleh, catatan) VALUES ($1, $2, $3, $4)', [d.id_dokumen, setuju ? 'disetujui' : 'perbaikan', req.user.id_user, setuju ? null : req.body.catatan.trim()]);
+      if (setuju) {
+        const { n: disetujui } = await satu(c, "SELECT count(*)::int AS n FROM dokumen_akhir WHERE id_penerimaan = $1 AND jenis_dokumen = ANY($2::text[]) AND status_periksa = 'disetujui'", [b.id_penerimaan, WAJIB]);
+        if (disetujui === WAJIB.length) {
+          await c.query("UPDATE penerimaan_magang SET status = 'selesai' WHERE id_penerimaan = $1 AND status <> 'selesai'", [b.id_penerimaan]);
+          const k = await satu(c, 'SELECT id_konversi, status FROM pengajuan_konversi WHERE id_penerimaan = $1 FOR UPDATE', [b.id_penerimaan]);
+          if (k?.status === 'diterbitkan') await catat(c, 'pengajuan_konversi', k.id_konversi, 'diterbitkan', 'selesai', req.user.id_user);
+        }
+      }
+    });
+    const namaDok = LABEL_PENDEK[req.params.jenis] ?? req.params.jenis;
+    await email?.kirim({
+      idUser: b.id_user,
+      email: b.email,
+      nama: b.nama,
+      jenisEvent: setuju ? 'dokumen_disetujui' : 'dokumen_perbaikan',
+      subjek: `[SIGMA UG] ${namaDok} ${setuju ? 'Disetujui' : 'Perlu Perbaikan'}`,
+      pesan: setuju
+        ? `${namaDok} Anda untuk magang di ${b.nama_perusahaan} telah disetujui oleh dosen pendamping (${req.dosen.nama}).`
+        : `${namaDok} Anda perlu diperbaiki.\nCatatan dosen: ${req.body.catatan.trim()}${batas ? `\nBatas revisi: ${batas}` : ''}`,
     });
     res.json({ ok: true });
   });
@@ -214,18 +234,26 @@ export default function routerDosen({ db, storage }) {
     if (d.file_ttd) throw new Galat(409, 'Laporan ini sudah ditandatangani.');
     return { b, d };
   }
-  async function simpanTtd(req, buffer, nama) {
-    const { d } = await laporanSiapTtd(req);
+  async function simpanTtd(req, buffer, nama, digital = false) {
+    const { b, d } = await laporanSiapTtd(req);
     const lokasi = await storage.simpan(buffer, `dosen/${req.dosen.id_dosen}/laporan-ttd`);
     try {
       await db.transaksi(async (c) => {
-        await c.query('UPDATE dokumen_akhir SET file_ttd = $1, nama_ttd = $2, ditandatangani_pada = now() WHERE id_dokumen = $3', [lokasi, nama, d.id_dokumen]);
+        await c.query('UPDATE dokumen_akhir SET file_ttd = $1, nama_ttd = $2, ttd_digital = $3, ditandatangani_pada = now() WHERE id_dokumen = $4', [lokasi, nama, digital, d.id_dokumen]);
         await c.query("INSERT INTO riwayat_dokumen (id_dokumen, aksi, oleh) VALUES ($1, 'ditandatangani', $2)", [d.id_dokumen, req.user.id_user]);
       });
     } catch (e) {
       await storage.hapus(lokasi);
       throw e;
     }
+    await email?.kirim({
+      idUser: b.id_user,
+      email: b.email,
+      nama: b.nama,
+      jenisEvent: 'laporan_ditandatangani',
+      subjek: '[SIGMA UG] Laporan Akhir Anda Telah Ditandatangani',
+      pesan: `Laporan akhir magang Anda di ${b.nama_perusahaan} telah ditandatangani oleh dosen pendamping (${req.dosen.nama}) dan dapat diunduh di SIGMA UG.`,
+    });
   }
 
   r.post('/bimbingan/:id/laporan/tanda-tangan', async (req, res) => {
@@ -237,7 +265,7 @@ export default function routerDosen({ db, storage }) {
     } catch {
       throw new Galat(422, 'Berkas laporan tidak dapat ditandatangani secara digital. Gunakan opsi unggah PDF bertanda tangan.');
     }
-    await simpanTtd(req, hasil.buffer, `Laporan_Akhir_${b.npm}_ditandatangani.pdf`);
+    await simpanTtd(req, hasil.buffer, `Laporan_Akhir_${b.npm}_ditandatangani.pdf`, true);
     res.json({ ok: true, id_verifikasi: hasil.sidik.slice(0, 16) });
   });
 

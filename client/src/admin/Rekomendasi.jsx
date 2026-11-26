@@ -54,9 +54,15 @@ export function DaftarRekomendasi() {
 
   return (
     <div className="halaman admin-lebar">
-      <header className="masuk">
-        <h1 className="judul">Pengajuan Surat Rekomendasi</h1>
-        <p className="sub">Periksa pengajuan mahasiswa. Pengajuan yang disetujui langsung diterbitkan suratnya. Pilih beberapa baris untuk memvalidasi sekaligus.</p>
+      <header className="halaman-kepala masuk">
+        <div>
+          <h1 className="judul">Pengajuan Surat Rekomendasi</h1>
+          <p className="sub">Periksa pengajuan mahasiswa. Pengajuan yang disetujui langsung diterbitkan suratnya. Pilih beberapa baris untuk memvalidasi sekaligus.</p>
+        </div>
+        <div className="aksi-keputusan" style={{ marginTop: 0 }}>
+          <Link to="/admin/kategori-perusahaan" className="btn garis kecil">Kategori Perusahaan</Link>
+          <Link to="/admin/template-surat?jenis=rekomendasi" className="btn garis kecil">Template Surat</Link>
+        </div>
       </header>
 
       {hasil && <HasilMassal hasil={hasil} onTutup={() => setHasil(null)} />}

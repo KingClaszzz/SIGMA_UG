@@ -6,7 +6,7 @@ import MahasiswaShell from './mahasiswa/MahasiswaShell.jsx';
 import Dashboard from './mahasiswa/Dashboard.jsx';
 import Profile from './mahasiswa/Profile.jsx';
 import { AjukanRekomendasi, DetailRekomendasi, RiwayatRekomendasi } from './mahasiswa/SuratRekomendasi.jsx';
-import KonversiSks, { AjukanKonversi, DetailKonversi, RiwayatKonversi } from './mahasiswa/KonversiSks.jsx';
+import KonversiSks, { AjukanKonversi, DetailKonversi, LaporMandiri, RiwayatKonversi } from './mahasiswa/KonversiSks.jsx';
 import DokumenMagang from './mahasiswa/DokumenMagang.jsx';
 import AdminShell from './admin/AdminShell.jsx';
 import DashboardAdmin from './admin/Dashboard.jsx';
@@ -18,6 +18,10 @@ import { DaftarPeriode, DetailPeriode, FormPeriode } from './admin/Periode.jsx';
 import { DaftarMonitoring, DetailMonitoring } from './admin/Monitoring.jsx';
 import Akun from './admin/Akun.jsx';
 import MataKuliah from './admin/MataKuliah.jsx';
+import NotifikasiEmail from './admin/NotifikasiEmail.jsx';
+import ProfilAdmin from './admin/Profil.jsx';
+import KategoriPerusahaan from './admin/KategoriPerusahaan.jsx';
+import TemplateSurat from './admin/TemplateSurat.jsx';
 import DosenShell from './dosen/DosenShell.jsx';
 import { DashboardDosen, DaftarBimbingan, DetailBimbingan } from './dosen/Bimbingan.jsx';
 import { DaftarMonitoring as MonitoringDosen, DetailDokumen, RiwayatMonitoring } from './dosen/Monitoring.jsx';
@@ -43,6 +47,8 @@ export default function App() {
         <Route path="/konversi-sks" element={<KonversiSks />} />
         <Route path="/konversi-sks/ajukan" element={<AjukanKonversi />} />
         <Route path="/konversi-sks/ajukan/:id" element={<AjukanKonversi />} />
+        <Route path="/konversi-sks/mandiri" element={<LaporMandiri />} />
+        <Route path="/konversi-sks/mandiri/:id" element={<LaporMandiri />} />
         <Route path="/konversi-sks/riwayat" element={<RiwayatKonversi />} />
         <Route path="/konversi-sks/riwayat/:id" element={<DetailKonversi />} />
         <Route path="/dokumen-magang/:tab?" element={<DokumenMagang />} />
@@ -65,6 +71,10 @@ export default function App() {
         <Route path="/admin/periode/:id" element={<DetailPeriode />} />
         <Route path="/admin/periode/:id/ubah" element={<FormPeriode />} />
         <Route path="/admin/mata-kuliah" element={<MataKuliah />} />
+        <Route path="/admin/notifikasi-email" element={<NotifikasiEmail />} />
+        <Route path="/admin/profil" element={<ProfilAdmin />} />
+        <Route path="/admin/kategori-perusahaan" element={<KategoriPerusahaan />} />
+        <Route path="/admin/template-surat" element={<TemplateSurat />} />
       </Route>
       <Route element={<DosenShell />}>
         <Route path="/dosen" element={<DashboardDosen />} />
