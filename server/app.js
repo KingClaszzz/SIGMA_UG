@@ -1,6 +1,7 @@
 import express from 'express';
 import { Galat } from './lib.js';
 import { pembatas } from './batas.js';
+import { buatLayananEmail } from './email.js';
 import routerPublik from './routes/publik.js';
 import routerMahasiswa from './routes/mahasiswa.js';
 import routerAdmin from './routes/admin.js';
@@ -45,8 +46,9 @@ const BATAS_BAWAAN = {
   tulis: { jendelaMs: 10 * 60_000, maks: 90 }, // POST/PUT/DELETE per pengguna (admin dihitung lebih longgar di bawah)
 };
 
-export function buatApp({ db, storage, verifikasi, akun, batas = {} }) {
+export function buatApp({ db, storage, verifikasi, akun, kirimEmail = null, batas = {} }) {
   const b = { ...BATAS_BAWAAN, ...batas };
+  const email = buatLayananEmail({ db, kirimEmail });
   const app = express();
   app.disable('x-powered-by');
   // Di belakang reverse proxy, isi TRUST_PROXY (jumlah proxy) agar req.ip adalah IP pengunjung, bukan IP proxy.
@@ -73,9 +75,9 @@ export function buatApp({ db, storage, verifikasi, akun, batas = {} }) {
   const tulis = pembatas({ ...b.tulis, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET', pesan: 'Terlalu banyak tindakan dalam waktu singkat. Tunggu beberapa menit lalu coba lagi.' });
   const tulisAdmin = pembatas({ ...b.tulis, maks: b.tulis.maks * 5, kunci: (req) => `u${req.user.id_user}`, lewati: (req) => req.method === 'GET' });
   app.get('/api/saya', masuk, (req, res) => res.json({ peran: req.user.peran, nama: req.user.nama, email: req.user.email }));
-  app.use('/api/mahasiswa', masuk, wajibPeran('mahasiswa'), tulis, routerMahasiswa({ db, storage }));
-  app.use('/api/admin', masuk, wajibPeran('admin'), tulisAdmin, routerAdmin({ db, storage, akun }));
-  app.use('/api/dosen', masuk, wajibPeran('dosen'), tulisAdmin, routerDosen({ db, storage }));
+  app.use('/api/mahasiswa', masuk, wajibPeran('mahasiswa'), tulis, routerMahasiswa({ db, storage, email }));
+  app.use('/api/admin', masuk, wajibPeran('admin'), tulisAdmin, routerAdmin({ db, storage, akun, email }));
+  app.use('/api/dosen', masuk, wajibPeran('dosen'), tulisAdmin, routerDosen({ db, storage, email }));
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Alamat tidak ditemukan.' }));
 

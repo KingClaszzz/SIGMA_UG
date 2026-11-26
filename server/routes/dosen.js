@@ -18,7 +18,7 @@ const jenisSah = (j) => {
 };
 const kecil = (s) => `${s ?? ''}`.toLowerCase();
 
-export default function routerDosen({ db, storage }) {
+export default function routerDosen({ db, storage, email }) {
   const r = express.Router();
 
   r.use(async (req, _res, next) => {
@@ -32,7 +32,7 @@ export default function routerDosen({ db, storage }) {
   // Satu baris per mahasiswa bimbingan, lengkap dengan dokumennya.
   async function bimbingan(req, idKonversi = null) {
     const rows = await q(db, `SELECT k.id_konversi AS id, k.status AS status_konversi, n.id_penerimaan, n.posisi, n.tgl_mulai, n.tgl_selesai, p.nama_perusahaan, p.alamat_perusahaan, pr.tahun_akademik,
-        m.npm, m.semester, m.no_telepon, u.nama, u.email, pd.ditetapkan_pada
+        m.npm, m.semester, m.no_telepon, u.id_user, u.nama, u.email, pd.ditetapkan_pada
       FROM penugasan_dosen pd JOIN pengajuan_konversi k ON k.id_konversi = pd.id_konversi JOIN penerimaan_magang n ON n.id_penerimaan = k.id_penerimaan
       JOIN pengajuan_rekomendasi p ON p.id_pengajuan = n.id_pengajuan LEFT JOIN periode_magang pr ON pr.id_periode = p.id_periode
       JOIN mahasiswa m ON m.id_mahasiswa = p.id_mahasiswa JOIN users u ON u.id_user = m.id_user
@@ -47,7 +47,7 @@ export default function routerDosen({ db, storage }) {
       };
     });
   }
-  const ringkas = ({ docs, id_penerimaan, ...x }) => x;
+  const ringkas = ({ docs, id_penerimaan, id_user, ...x }) => x;
   const cari = (req) => bimbingan(req, Number(req.params.id)).then(([b]) => {
     if (!b) throw new Galat(404, 'Mahasiswa bimbingan tidak ditemukan.');
     return b;
@@ -212,6 +212,17 @@ export default function routerDosen({ db, storage }) {
         }
       }
     });
+    const namaDok = LABEL_PENDEK[req.params.jenis] ?? req.params.jenis;
+    await email?.kirim({
+      idUser: b.id_user,
+      email: b.email,
+      nama: b.nama,
+      jenisEvent: setuju ? 'dokumen_disetujui' : 'dokumen_perbaikan',
+      subjek: `[SIGMA UG] ${namaDok} ${setuju ? 'Disetujui' : 'Perlu Perbaikan'}`,
+      pesan: setuju
+        ? `${namaDok} Anda untuk magang di ${b.nama_perusahaan} telah disetujui oleh dosen pendamping (${req.dosen.nama}).`
+        : `${namaDok} Anda perlu diperbaiki.\nCatatan dosen: ${req.body.catatan.trim()}${batas ? `\nBatas revisi: ${batas}` : ''}`,
+    });
     res.json({ ok: true });
   });
 
@@ -224,7 +235,7 @@ export default function routerDosen({ db, storage }) {
     return { b, d };
   }
   async function simpanTtd(req, buffer, nama, digital = false) {
-    const { d } = await laporanSiapTtd(req);
+    const { b, d } = await laporanSiapTtd(req);
     const lokasi = await storage.simpan(buffer, `dosen/${req.dosen.id_dosen}/laporan-ttd`);
     try {
       await db.transaksi(async (c) => {
@@ -235,6 +246,14 @@ export default function routerDosen({ db, storage }) {
       await storage.hapus(lokasi);
       throw e;
     }
+    await email?.kirim({
+      idUser: b.id_user,
+      email: b.email,
+      nama: b.nama,
+      jenisEvent: 'laporan_ditandatangani',
+      subjek: '[SIGMA UG] Laporan Akhir Anda Telah Ditandatangani',
+      pesan: `Laporan akhir magang Anda di ${b.nama_perusahaan} telah ditandatangani oleh dosen pendamping (${req.dosen.nama}) dan dapat diunduh di SIGMA UG.`,
+    });
   }
 
   r.post('/bimbingan/:id/laporan/tanda-tangan', async (req, res) => {

@@ -23,7 +23,7 @@ const namaBerkas = (req) => {
 };
 const nomorDari = (kode, p, id) => nomorTampil(kode, iso(p), id);
 
-export default function routerMahasiswa({ db, storage }) {
+export default function routerMahasiswa({ db, storage, email }) {
   const r = express.Router();
 
   // ---------- pembantu ----------
@@ -228,7 +228,7 @@ export default function routerMahasiswa({ db, storage }) {
   });
 
   r.post('/rekomendasi/:id/kirim', async (req, res) => {
-    res.json(await db.transaksi(async (c) => {
+    const hasil = await db.transaksi(async (c) => {
       const { m, p } = await pengajuanSaya(c, req.user, req.params.id, { draft: true });
       await wajibDibuka(c, 'pengajuan', 'pengajuan surat rekomendasi');
       await batasKirim(c, req.user, m.id_mahasiswa, 'pengajuan_rekomendasi', 'surat rekomendasi');
@@ -237,7 +237,16 @@ export default function routerMahasiswa({ db, storage }) {
       await c.query('UPDATE pengajuan_rekomendasi SET alasan_penolakan = NULL WHERE id_pengajuan = $1', [p.id]);
       await catat(c, 'pengajuan_rekomendasi', p.id, 'draft', 'diajukan', req.user.id_user);
       return (await muatPengajuan(c, m.id_mahasiswa, p.id))[0];
-    }));
+    });
+    await email?.kirim({
+      idUser: req.user.id_user,
+      email: req.user.email,
+      nama: req.user.nama,
+      jenisEvent: 'pengajuan_terkirim',
+      subjek: `[SIGMA UG] Pengajuan Surat Rekomendasi Terkirim (${hasil.nama_perusahaan})`,
+      pesan: `Pengajuan surat rekomendasi magang Anda (${hasil.nomor}) untuk ${hasil.nama_perusahaan} telah berhasil dikirim dan menunggu pemeriksaan Admin Prodi.`,
+    });
+    res.json(hasil);
   });
 
   r.get('/rekomendasi/:id/surat', async (req, res) => {
@@ -465,7 +474,7 @@ export default function routerMahasiswa({ db, storage }) {
   }
 
   r.post('/konversi/:id/kirim', async (req, res) => {
-    res.json(await db.transaksi(async (c) => {
+    const hasil = await db.transaksi(async (c) => {
       const { m, k } = await konversiSaya(c, req.user, req.params.id, { ubah: true });
       await wajibDibuka(c, 'konversi', 'pengajuan konversi SKS');
       await batasKirim(c, req.user, m.id_mahasiswa, 'pengajuan_konversi', 'konversi SKS');
@@ -475,7 +484,16 @@ export default function routerMahasiswa({ db, storage }) {
       await c.query('UPDATE pengajuan_konversi SET alasan_penolakan = NULL WHERE id_konversi = $1', [k.id]);
       await catat(c, 'pengajuan_konversi', k.id, k.status, 'diajukan', req.user.id_user);
       return (await muatKonversi(c, m.id_mahasiswa, k.id))[0];
-    }));
+    });
+    await email?.kirim({
+      idUser: req.user.id_user,
+      email: req.user.email,
+      nama: req.user.nama,
+      jenisEvent: 'konversi_terkirim',
+      subjek: `[SIGMA UG] Pengajuan Konversi SKS Terkirim (${hasil.nama_perusahaan})`,
+      pesan: `Pengajuan konversi SKS Anda (${hasil.nomor}) untuk magang di ${hasil.nama_perusahaan} telah berhasil dikirim dan menunggu pemeriksaan Admin Prodi.`,
+    });
+    res.json(hasil);
   });
 
   r.get('/konversi/:id/surat', async (req, res) => {

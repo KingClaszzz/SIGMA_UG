@@ -141,6 +141,7 @@
 .notif-daftar .aksi-kecil { white-space: nowrap; }
 .notif-titik { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: transparent; }
 .notif-daftar li.baru .notif-titik { background: #c62828; }
+.notif-kaki { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--grey-92); background: #fbfaff; border-radius: 0 0 14px 14px; }
 
 /* Anak grid boleh menyusut agar tabel lebar bergulir di dalam kartu, bukan melebarkan halaman. */
 .halaman > *, .dua-kolom-admin > *, .kolom-samping > *, .tiga-kartu > * { min-width: 0; }

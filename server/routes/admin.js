@@ -23,7 +23,7 @@ const berkas = (nama, ukuran) => (nama ? { nama, ukuran } : null);
 const cocok = (kata, ...isi) => !kata || isi.some((x) => `${x ?? ''}`.toLowerCase().includes(kata.trim().toLowerCase()));
 const urut = (rows, kolom) => rows.map((r) => ({ ...r, [kolom]: iso(r[kolom]) }));
 
-export default function routerAdmin({ db, storage, akun }) {
+export default function routerAdmin({ db, storage, akun, email }) {
   const r = express.Router();
 
   r.use(async (req, _res, next) => {
@@ -69,12 +69,45 @@ export default function routerAdmin({ db, storage, akun }) {
     }
     const dibaca = new Date(req.admin.notif_dibaca_pada);
     const semua = item.map((x) => ({ ...x, waktu: iso(x.waktu), baru: new Date(x.waktu) > dibaca })).sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
-    res.json({ belum_dibaca: semua.filter((x) => x.baru).length, item: semua.slice(0, 10) });
+    res.json({
+      belum_dibaca: semua.filter((x) => x.baru).length,
+      email_gagal: await hitung("SELECT count(*)::int AS n FROM notifikasi_email WHERE status_kirim = 'gagal'"),
+      item: semua.slice(0, 10),
+    });
   });
 
   r.post('/notifikasi/baca', async (req, res) => {
     await db.query('UPDATE admin SET notif_dibaca_pada = now() WHERE id_admin = $1', [req.admin.id_admin]);
     res.json({ ok: true });
+  });
+
+  // ---------- log notifikasi email & kirim ulang (FR-17, SDD Tabel 18) ----------
+  r.get('/notifikasi-email', async (req, res) => {
+    const rows = await q(db, 'SELECT n.*, u.nama, u.email FROM notifikasi_email n JOIN users u USING (id_user) ORDER BY n.id_notifikasi DESC LIMIT 200');
+    const status = ['terkirim', 'gagal'].includes(req.query.status) ? req.query.status : null;
+    const data = rows
+      .filter((x) => (!status || x.status_kirim === status) && cocok(req.query.q, x.nama, x.email, x.subjek, x.jenis_event))
+      .map((x) => ({ ...x, dikirim_pada: iso(x.dikirim_pada) }));
+    res.json({
+      stat: { total: rows.length, terkirim: rows.filter((x) => x.status_kirim === 'terkirim').length, gagal: rows.filter((x) => x.status_kirim === 'gagal').length },
+      data,
+    });
+  });
+
+  r.post('/notifikasi-email/kirim-ulang-gagal', async (_req, res) => {
+    if (!email) throw new Galat(503, 'Layanan email belum tersedia.');
+    const daftar = await q(db, "SELECT n.*, u.nama, u.email FROM notifikasi_email n JOIN users u USING (id_user) WHERE n.status_kirim = 'gagal' ORDER BY n.id_notifikasi LIMIT 100");
+    let terkirim = 0;
+    for (const baris of daftar) if ((await email.kirimUlang(baris)).status_kirim === 'terkirim') terkirim++;
+    res.json({ total: daftar.length, terkirim, gagal: daftar.length - terkirim });
+  });
+
+  r.post('/notifikasi-email/:id/kirim-ulang', async (req, res) => {
+    if (!email) throw new Galat(503, 'Layanan email belum tersedia.');
+    const baris = await satu(db, 'SELECT n.*, u.nama, u.email FROM notifikasi_email n JOIN users u USING (id_user) WHERE n.id_notifikasi = $1', [Number(req.params.id)]);
+    if (!baris) throw new Galat(404, 'Riwayat email tidak ditemukan.');
+    const hasil = await email.kirimUlang(baris);
+    res.json({ ...hasil, dikirim_pada: iso(hasil.dikirim_pada), ok: hasil.status_kirim === 'terkirim' });
   });
 
   // ---------- dasbor (UI-11) ----------
@@ -183,7 +216,7 @@ export default function routerAdmin({ db, storage, akun }) {
   });
 
   const REK_SQL = `SELECT p.*, k.nama_kategori, k.is_diizinkan, m.npm, m.ipk, m.semester, m.alamat, m.no_telepon, m.status_aktif, m.status_cuti, m.ada_nilai_e, m.status_verifikasi, m.catatan_verifikasi,
-      u.nama AS nama_mhs, u.email AS email_mhs, pr.tahun_akademik,
+      u.id_user AS id_user_mhs, u.nama AS nama_mhs, u.email AS email_mhs, pr.tahun_akademik,
       (SELECT count(*)::int FROM riwayat_magang r WHERE r.id_mahasiswa = m.id_mahasiswa) AS magang
     FROM pengajuan_rekomendasi p JOIN kategori_perusahaan k USING (id_kategori) JOIN mahasiswa m USING (id_mahasiswa) JOIN users u ON u.id_user = m.id_user
     LEFT JOIN periode_magang pr ON pr.id_periode = p.id_periode`;
@@ -343,6 +376,7 @@ export default function routerAdmin({ db, storage, akun }) {
   // Data diri yang belum diverifikasi dilewati. Satu transaksi: gagal di tengah = tidak ada yang berubah (US-07).
   r.post('/rekomendasi/validasi', async (req, res) => {
     const ids = daftarId(req.body?.ids);
+    const antreanEmail = [];
     const hasil = await denganPembersihan((baru) => db.transaksi(async (c) => {
       const keluar = [];
       const periode = await periodeTerbaru(c);
@@ -353,15 +387,28 @@ export default function routerAdmin({ db, storage, akun }) {
         if (p.status_verifikasi !== 'terverifikasi') { keluar.push({ id, hasil: 'dilewati', alasan: 'Data diri mahasiswa belum diverifikasi' }); continue; }
         const gagal = evaluasiPengajuan(p, p.is_diizinkan, p.magang, periode);
         if (gagal.length) {
-          await c.query('UPDATE pengajuan_rekomendasi SET divalidasi_oleh = $1, divalidasi_pada = now(), alasan_penolakan = $2 WHERE id_pengajuan = $3', [req.admin.id_admin, gagal.join('; '), id]);
+          const alasan = gagal.join('; ');
+          await c.query('UPDATE pengajuan_rekomendasi SET divalidasi_oleh = $1, divalidasi_pada = now(), alasan_penolakan = $2 WHERE id_pengajuan = $3', [req.admin.id_admin, alasan, id]);
           await catat(c, 'pengajuan_rekomendasi', id, 'diajukan', 'ditolak', req.user.id_user);
-          keluar.push({ id, hasil: 'ditolak', alasan: gagal.join('; ') });
+          keluar.push({ id, hasil: 'ditolak', alasan });
+          antreanEmail.push({
+            idUser: p.id_user_mhs, email: p.email_mhs, nama: p.nama_mhs, jenisEvent: 'rekomendasi_ditolak',
+            subjek: `[SIGMA UG] Pengajuan Surat Rekomendasi Ditolak (${p.nama_perusahaan})`,
+            pesan: `Pengajuan surat rekomendasi magang Anda untuk ${p.nama_perusahaan} ditolak.\nAlasan: ${alasan}`,
+          });
         } else {
-          keluar.push({ id, hasil: 'disetujui', nomor_surat: await setujuiDanTerbitkan(c, p, req, baru) });
+          const nomorSurat = await setujuiDanTerbitkan(c, p, req, baru);
+          keluar.push({ id, hasil: 'disetujui', nomor_surat: nomorSurat });
+          antreanEmail.push({
+            idUser: p.id_user_mhs, email: p.email_mhs, nama: p.nama_mhs, jenisEvent: 'surat_terbit',
+            subjek: '[SIGMA UG] Surat Rekomendasi Anda Telah Terbit',
+            pesan: `Surat rekomendasi magang Anda untuk ${p.nama_perusahaan} telah diterbitkan dengan nomor ${nomorSurat}. Silakan masuk ke SIGMA UG untuk mengunduh PDF surat.`,
+          });
         }
       }
       return keluar;
     }));
+    for (const item of antreanEmail) await email?.kirim(item);
     res.json({ hasil });
   });
 
@@ -369,15 +416,20 @@ export default function routerAdmin({ db, storage, akun }) {
   r.post('/rekomendasi/:id/setujui', async (req, res) => {
     const id = Number(req.params.id);
     const opsi = opsiSurat(req.body);
-    const nomor = await denganPembersihan((baru) => db.transaksi(async (c) => {
+    const { nomor, target } = await denganPembersihan((baru) => db.transaksi(async (c) => {
       const p = await satu(c, `${REK_SQL} WHERE p.id_pengajuan = $1 FOR UPDATE OF p`, [id]);
       if (!p) throw new Galat(404, 'Pengajuan tidak ditemukan.');
       if (p.status !== 'diajukan') throw new Galat(409, 'Hanya pengajuan Diajukan yang bisa disetujui.');
       if (p.status_verifikasi !== 'terverifikasi') throw new Galat(409, 'Verifikasi data diri mahasiswa terlebih dahulu.');
       const gagal = evaluasiPengajuan(p, p.is_diizinkan, p.magang, await periodeTerbaru(c));
       if (gagal.length) throw new Galat(409, `Syarat belum terpenuhi: ${gagal.join('; ')}. Tolak pengajuan bila memang tidak memenuhi syarat.`);
-      return setujuiDanTerbitkan(c, p, req, baru, opsi);
+      return { nomor: await setujuiDanTerbitkan(c, p, req, baru, opsi), target: p };
     }));
+    await email?.kirim({
+      idUser: target.id_user_mhs, email: target.email_mhs, nama: target.nama_mhs, jenisEvent: 'surat_terbit',
+      subjek: '[SIGMA UG] Surat Rekomendasi Anda Telah Terbit',
+      pesan: `Surat rekomendasi magang Anda untuk ${target.nama_perusahaan} telah diterbitkan dengan nomor ${nomor}. Silakan masuk ke SIGMA UG untuk mengunduh PDF surat.`,
+    });
     res.json({ nomor_surat: nomor });
   });
 
@@ -385,12 +437,20 @@ export default function routerAdmin({ db, storage, akun }) {
   r.post('/rekomendasi/:id/perbaikan', async (req, res) => {
     salah(alasanSah(req.body?.catatan)?.replace('penolakan', 'perbaikan'));
     const id = Number(req.params.id);
-    await db.transaksi(async (c) => {
-      const p = await satu(c, 'SELECT status FROM pengajuan_rekomendasi WHERE id_pengajuan = $1 FOR UPDATE', [id]);
+    const info = await db.transaksi(async (c) => {
+      const p = await satu(c, `SELECT p.status, p.nama_perusahaan, u.id_user, u.email, u.nama
+        FROM pengajuan_rekomendasi p JOIN mahasiswa m USING (id_mahasiswa) JOIN users u USING (id_user)
+        WHERE p.id_pengajuan = $1 FOR UPDATE OF p`, [id]);
       if (!p) throw new Galat(404, 'Pengajuan tidak ditemukan.');
       if (p.status !== 'diajukan') throw new Galat(409, 'Hanya pengajuan Diajukan yang bisa dikembalikan untuk diperbaiki.');
       await c.query('UPDATE pengajuan_rekomendasi SET divalidasi_oleh = $1, divalidasi_pada = now(), alasan_penolakan = $2 WHERE id_pengajuan = $3', [req.admin.id_admin, req.body.catatan.trim(), id]);
       await catat(c, 'pengajuan_rekomendasi', id, 'diajukan', 'draft', req.user.id_user);
+      return p;
+    });
+    await email?.kirim({
+      idUser: info.id_user, email: info.email, nama: info.nama, jenisEvent: 'rekomendasi_perbaikan',
+      subjek: `[SIGMA UG] Pengajuan Surat Rekomendasi Perlu Perbaikan (${info.nama_perusahaan})`,
+      pesan: `Pengajuan surat rekomendasi magang Anda untuk ${info.nama_perusahaan} dikembalikan oleh Admin Prodi untuk diperbaiki.\nCatatan perbaikan: ${req.body.catatan.trim()}`,
     });
     res.json({ ok: true });
   });
@@ -398,19 +458,27 @@ export default function routerAdmin({ db, storage, akun }) {
   r.post('/rekomendasi/:id/tolak', async (req, res) => {
     salah(alasanSah(req.body?.alasan));
     const id = Number(req.params.id);
-    await db.transaksi(async (c) => {
-      const p = await satu(c, 'SELECT status FROM pengajuan_rekomendasi WHERE id_pengajuan = $1 FOR UPDATE', [id]);
+    const info = await db.transaksi(async (c) => {
+      const p = await satu(c, `SELECT p.status, p.nama_perusahaan, u.id_user, u.email, u.nama
+        FROM pengajuan_rekomendasi p JOIN mahasiswa m USING (id_mahasiswa) JOIN users u USING (id_user)
+        WHERE p.id_pengajuan = $1 FOR UPDATE OF p`, [id]);
       if (!p) throw new Galat(404, 'Pengajuan tidak ditemukan.');
       if (p.status !== 'diajukan') throw new Galat(409, 'Hanya pengajuan Diajukan yang bisa ditolak.');
       await c.query('UPDATE pengajuan_rekomendasi SET divalidasi_oleh = $1, divalidasi_pada = now(), alasan_penolakan = $2 WHERE id_pengajuan = $3', [req.admin.id_admin, req.body.alasan.trim(), id]);
       await catat(c, 'pengajuan_rekomendasi', id, 'diajukan', 'ditolak', req.user.id_user);
+      return p;
+    });
+    await email?.kirim({
+      idUser: info.id_user, email: info.email, nama: info.nama, jenisEvent: 'rekomendasi_ditolak',
+      subjek: `[SIGMA UG] Pengajuan Surat Rekomendasi Ditolak (${info.nama_perusahaan})`,
+      pesan: `Pengajuan surat rekomendasi magang Anda untuk ${info.nama_perusahaan} ditolak.\nAlasan: ${req.body.alasan.trim()}`,
     });
     res.json({ ok: true });
   });
 
   // ---------- konversi SKS (FR-06, FR-07, FR-08) ----------
   const KNV_SQL = `SELECT k.*, n.id_penerimaan, n.id_pengajuan, n.posisi, n.tgl_mulai, n.tgl_selesai, n.file_surat_penerimaan,
-      p.nama_perusahaan, p.alamat_perusahaan, pr.tahun_akademik, m.id_mahasiswa, m.npm, m.semester, m.no_telepon, m.status_verifikasi, u.nama AS nama_mhs, u.email AS email_mhs,
+      p.nama_perusahaan, p.alamat_perusahaan, pr.tahun_akademik, m.id_mahasiswa, m.npm, m.semester, m.no_telepon, m.status_verifikasi, u.id_user AS id_user_mhs, u.nama AS nama_mhs, u.email AS email_mhs,
       (SELECT count(*)::int FROM riwayat_magang r WHERE r.id_mahasiswa = m.id_mahasiswa) AS magang,
       (SELECT count(*)::int FROM pengajuan_konversi k2 JOIN penerimaan_magang n2 ON n2.id_penerimaan = k2.id_penerimaan JOIN pengajuan_rekomendasi p2 ON p2.id_pengajuan = n2.id_pengajuan
         WHERE p2.id_mahasiswa = m.id_mahasiswa AND k2.status IN ('diproses', 'diterbitkan', 'selesai')) AS disetujui
@@ -435,7 +503,7 @@ export default function routerAdmin({ db, storage, akun }) {
         nama_perusahaan: k.nama_perusahaan, alamat_perusahaan: k.alamat_perusahaan, posisi: k.posisi, tgl_mulai: k.tgl_mulai, tgl_selesai: k.tgl_selesai, tahun_akademik: k.tahun_akademik,
         diajukan_pada: riwayat.find((x) => x.status === 'diajukan')?.pada ?? iso(k.dibuat_pada),
         disetujui_pada: s ? iso(s.diterbitkan_pada) : null,
-        mahasiswa: { id: k.id_mahasiswa, nama: k.nama_mhs, email: k.email_mhs, npm: k.npm, semester: k.semester, no_telepon: k.no_telepon, magang: k.magang, status_verifikasi: k.status_verifikasi },
+        mahasiswa: { id: k.id_mahasiswa, id_user: k.id_user_mhs, nama: k.nama_mhs, email: k.email_mhs, npm: k.npm, semester: k.semester, no_telepon: k.no_telepon, magang: k.magang, status_verifikasi: k.status_verifikasi },
         kuota: { disetujui: k.disetujui, batas: BATAS_MAGANG },
         surat_penerimaan: k.file_surat_penerimaan ? { nama: 'Surat penerimaan.pdf' } : null, silabus: k.file_silabus ? { nama: 'Silabus.pdf' } : null,
         matkul: detail.filter((x) => x.id_konversi === k.id_konversi).map(({ id_matkul, kode_mk, nama_mk, sks, sks_diakui, keterangan }) => ({ id_matkul, kode_mk, nama_mk, sks, sks_diakui, keterangan: keterangan ?? KETERANGAN_AWAL })),
@@ -494,16 +562,28 @@ export default function routerAdmin({ db, storage, akun }) {
     kirimPdf(res, await storage.baca(s.file_pdf), `${s.nomor_surat.replaceAll('/', '-')}.pdf`);
   });
 
+  const penerimaKonversi = (c, idKonversi) => satu(c, `SELECT u.id_user, u.email, u.nama, p.nama_perusahaan
+    FROM pengajuan_konversi k JOIN penerimaan_magang n USING (id_penerimaan) JOIN pengajuan_rekomendasi p USING (id_pengajuan)
+    JOIN mahasiswa m USING (id_mahasiswa) JOIN users u USING (id_user) WHERE k.id_konversi = $1`, [idKonversi]);
+
   // FR-06: periksa kelengkapan. Batas dua kali magang tidak dicek lagi di sini karena sudah diperiksa saat validasi surat rekomendasi (BR-03).
   r.post('/konversi/:id/periksa', async (req, res) => {
     const lengkap = req.body?.lengkap === true;
     if (!lengkap) salah(alasanSah(req.body?.alasan));
-    await db.transaksi(async (c) => {
+    const info = await db.transaksi(async (c) => {
       const k = await konversiBerstatus(c, Number(req.params.id), ['diajukan'], 'Hanya pengajuan Diajukan yang bisa diperiksa.');
       await c.query('UPDATE pengajuan_konversi SET diperiksa_oleh = $1, diperiksa_pada = now(), alasan_penolakan = $2 WHERE id_konversi = $3',
         [req.admin.id_admin, lengkap ? null : req.body.alasan.trim(), k.id_konversi]);
       await catat(c, 'pengajuan_konversi', k.id_konversi, 'diajukan', lengkap ? 'ditinjau' : 'ditolak', req.user.id_user);
+      return lengkap ? null : penerimaKonversi(c, k.id_konversi);
     });
+    if (info) {
+      await email?.kirim({
+        idUser: info.id_user, email: info.email, nama: info.nama, jenisEvent: 'konversi_ditolak',
+        subjek: `[SIGMA UG] Pengajuan Konversi SKS Ditolak (${info.nama_perusahaan})`,
+        pesan: `Pengajuan konversi SKS Anda untuk ${info.nama_perusahaan} ditolak pada tahap pemeriksaan berkas.\nAlasan: ${req.body.alasan.trim()}`,
+      });
+    }
     res.json({ ok: true });
   });
 
@@ -524,7 +604,7 @@ export default function routerAdmin({ db, storage, akun }) {
 
   // "Setujui Konversi": menyetujui sekaligus menerbitkan surat keterangan konversi SKS. Dosen pendamping ditetapkan terpisah (Penugasan Dosen).
   r.post('/konversi/:id/setujui', async (req, res) => {
-    const nomor = await denganPembersihan((baru) => db.transaksi(async (c) => {
+    const { nomor, data, total } = await denganPembersihan((baru) => db.transaksi(async (c) => {
       const k = await konversiBerstatus(c, Number(req.params.id), ['ditinjau'], 'Hanya pengajuan yang sudah diperiksa berkasnya yang bisa disetujui.');
       const [data] = await konversiDari(c, await q(c, `${KNV_SQL} WHERE k.id_konversi = $1`, [k.id_konversi]));
       if (!data.matkul.length) throw new Galat(409, 'Simpan pemetaan mata kuliah terlebih dahulu.');
@@ -543,18 +623,31 @@ export default function routerAdmin({ db, storage, akun }) {
       await c.query('INSERT INTO surat (jenis_surat, nomor_surat, id_konversi, id_template, file_pdf, diterbitkan_oleh) VALUES ($1, $2, $3, $4, $5, $6)',
         ['konversi', nomorSurat, k.id_konversi, await templatTerpasang(c, 'konversi'), lokasi, req.admin.id_admin]);
       await catat(c, 'pengajuan_konversi', k.id_konversi, 'diproses', 'diterbitkan', req.user.id_user);
-      return nomorSurat;
+      return { nomor: nomorSurat, data, total };
     }));
+    await email?.kirim({
+      idUser: data.mahasiswa.id_user, email: data.mahasiswa.email, nama: data.mahasiswa.nama, jenisEvent: 'surat_konversi_terbit',
+      subjek: '[SIGMA UG] Surat Konversi SKS Anda Telah Terbit',
+      pesan: `Hasil konversi SKS Anda (${total} SKS) untuk magang di ${data.nama_perusahaan} telah disetujui dan surat konversi (nomor ${nomor}) telah diterbitkan. Silakan unduh melalui SIGMA UG untuk ditandatangani secara basah di luar sistem.`,
+    });
     res.json({ nomor_surat: nomor });
   });
 
   r.post('/konversi/:id/tolak', async (req, res) => {
     salah(alasanSah(req.body?.alasan));
-    await db.transaksi(async (c) => {
+    const info = await db.transaksi(async (c) => {
       const k = await konversiBerstatus(c, Number(req.params.id), ['ditinjau'], 'Hanya pengajuan yang sedang ditinjau yang bisa ditolak di tahap ini.');
       await c.query('UPDATE pengajuan_konversi SET alasan_penolakan = $1, ditetapkan_oleh = $2, ditetapkan_pada = now() WHERE id_konversi = $3', [req.body.alasan.trim(), req.admin.id_admin, k.id_konversi]);
       await catat(c, 'pengajuan_konversi', k.id_konversi, 'ditinjau', 'ditolak', req.user.id_user);
+      return penerimaKonversi(c, k.id_konversi);
     });
+    if (info) {
+      await email?.kirim({
+        idUser: info.id_user, email: info.email, nama: info.nama, jenisEvent: 'konversi_ditolak',
+        subjek: `[SIGMA UG] Pengajuan Konversi SKS Ditolak (${info.nama_perusahaan})`,
+        pesan: `Pengajuan konversi SKS Anda untuk ${info.nama_perusahaan} ditolak.\nAlasan: ${req.body.alasan.trim()}`,
+      });
+    }
     res.json({ ok: true });
   });
 
@@ -567,12 +660,21 @@ export default function routerAdmin({ db, storage, akun }) {
 
   r.post('/konversi/:id/dosen', async (req, res) => {
     const idDosen = Number(req.body?.id_dosen);
-    if (!(await satu(db, 'SELECT 1 FROM dosen d JOIN users u USING (id_user) WHERE d.id_dosen = $1 AND u.is_aktif', [idDosen]))) throw new Galat(400, 'Pilih dosen pendamping yang aktif.');
-    await db.transaksi(async (c) => {
+    const dosen = await satu(db, 'SELECT u.nama FROM dosen d JOIN users u USING (id_user) WHERE d.id_dosen = $1 AND u.is_aktif', [idDosen]);
+    if (!dosen) throw new Galat(400, 'Pilih dosen pendamping yang aktif.');
+    const info = await db.transaksi(async (c) => {
       const k = await konversiBerstatus(c, Number(req.params.id), ['diterbitkan', 'selesai'], 'Dosen pendamping ditetapkan setelah konversi disetujui.');
       await c.query(`INSERT INTO penugasan_dosen (id_konversi, id_dosen, ditetapkan_oleh) VALUES ($1, $2, $3)
         ON CONFLICT (id_konversi) DO UPDATE SET id_dosen = EXCLUDED.id_dosen, ditetapkan_oleh = EXCLUDED.ditetapkan_oleh, ditetapkan_pada = now()`, [k.id_konversi, idDosen, req.admin.id_admin]);
+      return penerimaKonversi(c, k.id_konversi);
     });
+    if (info) {
+      await email?.kirim({
+        idUser: info.id_user, email: info.email, nama: info.nama, jenisEvent: 'dosen_ditetapkan',
+        subjek: `[SIGMA UG] Dosen Pendamping Magang Ditetapkan (${dosen.nama})`,
+        pesan: `Admin Prodi telah menetapkan ${dosen.nama} sebagai dosen pendamping magang Anda di ${info.nama_perusahaan}.`,
+      });
+    }
     res.json({ ok: true });
   });
 
